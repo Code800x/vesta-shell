@@ -1,178 +1,269 @@
-<div align="center">
-    <h1>【 end_4's Hyprland dotfiles 】</h1>
-    <h3></h3>
-</div>
-
-<div align="center"> 
-
-![](https://img.shields.io/github/last-commit/end-4/dots-hyprland?&style=for-the-badge&color=8ad7eb&logo=git&logoColor=D9E0EE&labelColor=1E202B)
-![](https://img.shields.io/github/stars/end-4/dots-hyprland?style=for-the-badge&logo=andela&color=86dbd7&logoColor=D9E0EE&labelColor=1E202B)
-![](https://img.shields.io/github/repo-size/end-4/dots-hyprland?color=86dbce&label=SIZE&logo=protondrive&style=for-the-badge&logoColor=D9E0EE&labelColor=1E202B)
-<a href="https://discord.gg/GtdRBXgMwq"> <img alt="Dynamic JSON Badge" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscordapp.com%2Fapi%2Finvites%2FGtdRBXgMwq%3Fwith_counts%3Dtrue&query=approximate_member_count&style=for-the-badge&logo=discord&logoColor=D9E0EE&label=discord&labelColor=%231E202B&color=86dbc0&link=https%3A%2F%2Fdiscord.gg%2FGtdRBXgMwq"> </a>
-
-</div>
+# ✦ Vesta Shell
 
 <div align="center">
-    <h2>• overview •</h2>
-    <h3></h3>
+
+**A modern and customizable desktop experience for Linux.**
+
+*Fluid interactions. Thoughtful design. Freedom to customize.*
+
+![Status](https://img.shields.io/badge/Status-Active%20Development-9575CD?style=flat-square)
+![Linux](https://img.shields.io/badge/Platform-Linux-555555?style=flat-square)
+![Wayland](https://img.shields.io/badge/Display-Wayland-555555?style=flat-square)
+![Quickshell](https://img.shields.io/badge/Framework-Quickshell-9575CD?style=flat-square)
+![Hyprland](https://img.shields.io/badge/Compositor-Hyprland-555555?style=flat-square)
+
 </div>
 
-> [!WARNING]  
-> Hyprland 0.55 update:
-> If your distro has not shipped Hyprland 0.55 and/or you're not ready for it, you should switch to the Pre-Hyprland Luaification release (or not update yet, if you're going to do that). See the wiki for more info: [Install](https://ii.clsty.link/en/ii-qs/01setup/#automated-installation) | [Update](https://ii.clsty.link/en/ii-qs/01setup/#updating)
+---
 
-<details> 
-  <summary>What this is/isn't</summary>
+## Overview
 
-  - Technically, configuration files
-  - Realistically, mostly the custom graphical shell
-  - NOT a system setup script: no graphic drivers, no zram setup, etc.
-  
-</details>
+**Vesta Shell** is a customizable desktop shell built with Quickshell, Qt Quick, and QML for Linux systems using Wayland and Hyprland.
 
-<details> 
-  <summary>Notable features</summary>
-     
-  - **Overview**: Shows open apps with live previews
-  - **AI**: Gemini, Ollama, and more
-  - **QoL**: screen translation, anti-flashbang, Google Lens
-  - **Material themes**: Choose your wallpaper, done, enjoy
-  - **Transparent installation**: Every command is shown before it's run
-</details>
+Vesta aims to combine a cohesive visual language, smooth animations, translucent surfaces, and practical desktop functionality into a unified experience.
 
-<details> 
-  <summary>Installation</summary>
+The project is currently under active development, with a focus on improving system configuration, visual consistency, and customization.
 
-   - **IMPORTANT: Hyprland 0.55 Update**: If your distro has not shipped Hyprland 0.55 and/or you're not ready for it, you should switch to the Pre-Hyprland Luaification release. See [the wiki](https://ii.clsty.link/en/ii-qs/01setup/) for more info
-   - Just run `bash <(curl -s https://ii.clsty.link/get)`
-     - Or, clone this repo and run `./setup install`
-     - See [the wiki](https://ii.clsty.link/en/ii-qs/01setup/) for more details
-   - **Keybinds**: Should be somewhat familiar to Windows or GNOME users. Important ones:
-     - `Super`+`/` = keybind list
-     - `Super`+`Enter` = terminal
+## Design philosophy
 
+Vesta Shell is guided by five principles:
 
-</details>
+- **Consistency:** A unified design language across panels, controls, and settings.
+- **Fluidity:** Responsive interactions and meaningful animations.
+- **Depth:** Transparency, blur, and layered surfaces used with restraint.
+- **Customization:** Flexible controls that adapt to different workflows.
+- **Usability:** Powerful features without unnecessary visual complexity.
 
-<details>
-  <summary>Software overview</summary>
+## Features
 
-  | Software | Purpose |
-  | ------------- | ------------- |
-  | [Hyprland](https://github.com/hyprwm/hyprland) | The compositor (manages and renders windows) |
-  | [Quickshell](https://quickshell.outfoxxed.me/) | A QtQuick-based widget system, used for the status bar, sidebars, etc. |
-  | Others | See [deps-info.md](https://github.com/end-4/dots-hyprland/blob/main/sdata/deps-info.md) |
+### Desktop experience
 
-</details>
+Vesta Shell provides a Quickshell-based desktop environment with graphical configuration interfaces and Hyprland integration.
 
-<details>
-    <summary>Discord</summary>
-        <a href="https://discord.gg/GtdRBXgMwq"> Server link</a> | I hope this provides a friendlier environment for support without needing me to personally accept every friend request/DM. For real issues, prefer GitHub
+The project is being developed incrementally, with individual components and services evolving toward a more modular and maintainable architecture.
 
-</details>
+### Display configuration
 
-<div align="center">
-    <h2>• screenshots •</h2>
-    <h3></h3>
-</div>
+The display configuration module is one of Vesta Shell's implemented features.
 
-<div align="center">
-    <img src="assets/illogical-impulse.svg" alt="illogical-impulse logo" style="float:left; width:400;">
-</div>
+It provides:
 
-Widget system: Quickshell | Support: Yes
+- Connected monitor detection.
+- Resolution and refresh rate selection.
+- Display scaling controls.
+- Interactive monitor arrangement.
+- Drag-and-drop positioning.
+- Automatic snapping and alignment guides.
+- Physical monitor identification.
+- Persistent display layouts.
+- Confirmation and automatic rollback of display changes.
 
-[Showcase video](https://www.youtube.com/watch?v=RPwovTInagE)
+#### Interactive monitor arrangement
 
-| AI, settings app | Some widgets |
-|:---|:---------------|
-| <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/5d4e7d07-d0b4-4406-a4c9-ed7ba90e3fe4" /> | <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/6a32395f-9437-4192-8faf-2951a9e84cbe" /> |
-| Window management | wow look its orange |
-| <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/c51bed8b-3670-4d4c-9074-873be224fb8e" /> | <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/98703a66-0743-439f-a721-cef7afa6ab95" /> |
+Monitor previews can be repositioned visually. The arrangement system includes snapping and alignment assistance to simplify multi-monitor layouts.
 
-<div align="center">
-    <h2>• thank you •</h2>
-    <h3></h3>
-</div>
+#### Safe configuration changes
 
- - [@clsty](https://github.com/clsty) for making the dotfiles accessible by taking care of the install script and many other things
- - [@midn8hustlr](https://github.com/midn8hustlr) for greatly improving the color generation system
- - [@outfoxxed](https://github.com/outfoxxed/) for being extremely supportive in my Quickshell journey
- - Quickshell: [Soramane](https://github.com/caelestia-dots/shell/), [FridayFaerie](https://github.com/FridayFaerie/quickshell), [nydragon](https://github.com/nydragon/nysh)
- - AGS: [Aylur](https://github.com/Aylur/dotfiles/tree/ags-pre-ts), [kotontrion](https://github.com/kotontrion/dotfiles)
- - EWW: [fufexan](https://github.com/fufexan/dotfiles)
+Potentially disruptive display changes use a confirmation workflow.
 
-<div align="center">
-    <h2>• stonks •</h2>
-    <h3></h3>
-</div>
+If a configuration is not confirmed within **15 seconds**, the previous configuration is restored automatically.
 
-- I promise not to attempt an +ULTRARICOSHOT irl... Coins can go here: https://github.com/sponsors/end-4
-- Tentacle cat hub twinkle internet points
+#### Persistent configuration
 
-[![Stargazers over time](https://starchart.cc/end-4/dots-hyprland.svg?variant=adaptive)](https://starchart.cc/end-4/dots-hyprland)
+Confirmed display configurations can be stored in:
 
+`~/.config/hypr/monitors.lua`
+
+Persistence requires a compatible Hyprland Lua configuration that loads this module.
+
+### Settings
+
+Vesta Shell includes a graphical settings interface intended to bring desktop configuration into one place.
+
+The settings experience emphasizes clear navigation, consistent controls, and immediate feedback.
+
+## Technology
+
+| Technology | Role |
+|---|---|
+| Quickshell | Desktop shell framework |
+| Qt Quick / QML | Interface and animations |
+| Hyprland | Wayland compositor |
+| Python 3 | Supporting services and display transactions |
+| Lua | Hyprland configuration integration |
+| JSON | Localization resources |
+
+## Project structure
+
+The display configuration module is organized as follows:
+
+```text
+dots/.config/quickshell/ii/
+├── modules/
+│   └── settings/
+│       ├── DisplaysConfig.qml
+│       └── components/
+│           ├── MonitorArrangement.qml
+│           └── MonitorIdentifier.qml
+├── scripts/
+│   └── displays/
+│       ├── display_transaction.py
+│       └── display_persistent.py
+├── services/
+│   └── DisplayManager.qml
+├── translations/
+│   └── pt_BR.json
+└── settings.qml
+
+instalar-monitores.py
+```
+
+This is a simplified view of the display module, not the complete repository structure.
+
+## Getting started
+
+### Requirements
+
+The development environment uses:
+
+- Linux with Wayland.
+- Hyprland with compatible Lua configuration support.
+- Quickshell.
+- Python 3.
+- Qt Quick / QML dependencies required by the shell.
+
+Additional dependencies may be necessary for other modules.
+
+### Clone
+
+```bash
+git clone https://github.com/Code800x/vesta-shell.git
+cd vesta-shell
+```
+
+### Preview the settings interface
+
+From the repository root:
+
+```bash
+qs -p "$PWD/dots/.config/quickshell/ii/settings.qml"
+```
+
+This launches the settings interface for development and testing. It is not a complete system installation procedure.
+
+## Installing the display module into an existing desktop configuration
+
+Vesta Shell includes an integration installer for adding its monitor configuration functionality to a compatible existing Quickshell desktop configuration.
+
+The installer is located at:
+
+`instalar-monitores.py`
+
+### Installation
+
+First, clone the repository:
+
+```bash
+git clone https://github.com/Code800x/vesta-shell.git
+cd vesta-shell
+```
+
+Then execute:
+
+```bash
+python3 instalar-monitores.py
+```
+
+The installer is designed around the following paths:
+
+- Source: `~/Projetos/vesta-shell/dots/.config/quickshell/ii`
+- Target: `~/.config/quickshell/ii`
+- Hyprland configuration: `~/.config/hypr`
+
+**Important:** Because the installer expects the source repository under `~/Projetos/vesta-shell`, clone or place the repository there before running it.
+
+For example:
+
+```bash
+mkdir -p ~/Projetos
+git clone https://github.com/Code800x/vesta-shell.git ~/Projetos/vesta-shell
+python3 ~/Projetos/vesta-shell/instalar-monitores.py
+```
+
+### What the installer does
+
+The installer is intended to:
+
+1. Validate the expected source and destination directories.
+2. Check compatibility with the existing settings interface.
+3. Copy the display configuration components and supporting scripts.
+4. Integrate the display settings page.
+5. Merge Brazilian Portuguese translation entries.
+6. Prepare compatible Hyprland Lua monitor persistence.
+7. Back up files before modifying them.
+
+The installer does **not** automatically restart Hyprland.
+
+### Before installing
+
+Back up your existing configuration and review the installer source.
+
+The integration currently targets a specific configuration layout. Compatibility with arbitrary Quickshell setups is not guaranteed.
+
+If the target settings interface differs significantly from the expected version, installation may stop rather than overwrite it.
+
+### After installing
+
+Restart the relevant Quickshell process to load the updated settings interface.
+
+Before reloading Hyprland, check that existing monitor rules do not conflict with the generated Lua configuration.
+
+## Development roadmap
+
+- [x] Monitor detection.
+- [x] Resolution and refresh rate configuration.
+- [x] Display scaling.
+- [x] Interactive monitor arrangement.
+- [x] Monitor identification.
+- [x] Alignment guides and snapping.
+- [x] Display change confirmation and rollback.
+- [x] Persistent monitor configuration.
+- [x] Display module integration installer.
+- [ ] Keyboard layout configuration.
+- [ ] Extended system settings.
+- [ ] More flexible appearance customization.
+- [ ] Improved portability between configurations.
+- [ ] Comprehensive installation workflow.
+- [ ] Expanded documentation and testing.
+
+## Development status
+
+Vesta Shell is an experimental project under active development.
+
+Some components may require environment-specific configuration. Features and internal APIs may change as the project evolves.
+
+## Contributing
+
+Suggestions, bug reports, and contributions are welcome.
+
+Please consider the existing architecture and visual language when proposing changes.
+
+## License and attribution
+
+Vesta Shell includes material derived from existing open-source work.
+
+Applicable copyright notices, license terms, and attribution requirements remain in effect for inherited code.
+
+Consult the repository's license files and source headers before redistributing or modifying components.
 
 ---
 
 <div align="center">
-    <h2>• previous styles •</h2>
-    <h3></h3>
+
+**✦ Vesta Shell**
+
+*Elegance in motion. Freedom by design.*
+
+[Repository](https://github.com/Code800x/vesta-shell)
+
 </div>
-
-- **Unsupported!**
-- **Source**: illogical-impulse AGS in `ii-ags` branch, others in `archive` branch.
-- List is in reverse chronological order
-
-### illogical-impulse (AGS)
-
-Widget system: AGS | Support: No
-
-| AI | Common widgets |
-|:---|:---------------|
-| ![image](https://github.com/user-attachments/assets/9d7af13f-89ef-470d-ba78-d2288b79cf60) | ![image](https://github.com/end-4/dots-hyprland/assets/97237370/406b72b6-fa38-4f0d-a6c4-4d7d5d5ddcb7) |
-| Window management | Weeb power |
-| ![image](https://github.com/user-attachments/assets/02983b9b-79ba-4c25-8717-90bef2357ae5) | ![image](https://github.com/user-attachments/assets/bbb332ec-962a-4e88-a95b-486d0bd8ce76) |
-
-#### m3ww
-
-Widget system: EWW | Support: No
-
-<a href="https://streamable.com/85ch8x">
-<img src="https://github.com/end-4/dots-hyprland/assets/97237370/09533e64-b6d7-47eb-a840-ee90c6776adf" alt="Material Eww!">
-</a>
-
-#### NovelKnock
-
-Widget system: EWW | Support: No
-
-<a href="https://streamable.com/7vo61k">
-<img src="https://github.com/end-4/dots-hyprland/assets/97237370/42903d03-bf6f-49d4-be7f-dd77e6cb389d" alt="Desktop Preview">
-</a>
-
-#### Hybrid
-
-Widget system: EWW | Support: No
-
-<a href="https://streamable.com/4oogot">
-<img src="https://github.com/end-4/dots-hyprland/assets/97237370/190deb1e-f6f5-46ce-8cf0-9b39944c079d" alt="click the circles!">
-</a>
-
-#### Windoes
-
-Widget system: EWW | Support: No
-
-<a href="https://streamable.com/5qx614">
-<img src="https://github.com/end-4/dots-hyprland/assets/97237370/b15317b1-f295-49f5-b90c-fb6328b8d886" alt="Desktop Preview">
-</a>
-
-
-
-<div align="center">
-    <h2>• inspirations/copying •</h2>
-    <h3></h3>
-</div>
-
- - Inspiration: osu!lazer (Hybrid), Windows 11 (Windoes), AvdanOS (NovelKnock), Material Design 3 (m3ww & later)
- - Copying: Absolutely, feel free. Just follow the license and it's all good
- 
