@@ -1,10 +1,9 @@
-//@ pragma UseQApplication
-//@ pragma Env QS_NO_RELOAD_POPUP=1
-//@ pragma Env QT_QUICK_CONTROLS_STYLE=Basic
-//@ pragma Env QT_QUICK_FLICKABLE_WHEEL_DECELERATION=10000
 
-// Adjust this to make the app smaller or larger
-//@ pragma Env QT_SCALE_FACTOR=1
+ //@ pragma UseQApplication
+ //@ pragma Env QS_NO_RELOAD_POPUP=1
+ //@ pragma Env QT_QUICK_CONTROLS_STYLE=Basic
+ //@ pragma Env QT_QUICK_FLICKABLE_WHEEL_DECELERATION=10000
+ //@ pragma Env QT_SCALE_FACTOR=1
 
 import QtQuick
 import QtQuick.Controls
@@ -18,10 +17,12 @@ import qs.modules.common.functions as CF
 
 ApplicationWindow {
     id: root
+
     property string firstRunFilePath: CF.FileUtils.trimFileProtocol(`${Directories.state}/user/first_run.txt`)
     property string firstRunFileContent: "This file is just here to confirm you've been greeted :>"
     property real contentPadding: 8
     property bool showNextTime: false
+
     property var pages: [
         {
             name: Translation.tr("Quick"),
@@ -37,6 +38,11 @@ ApplicationWindow {
             name: Translation.tr("Displays"),
             icon: "desktop_windows",
             component: "modules/settings/DisplaysConfig.qml"
+        },
+        {
+            name: "Wallpapers",
+            icon: "wallpaper",
+            component: "modules/settings/WallpapersConfig.qml"
         },
         {
             name: Translation.tr("Bar"),
@@ -70,6 +76,7 @@ ApplicationWindow {
             component: "modules/settings/About.qml"
         }
     ]
+
     property int currentPage: 0
 
     visible: true
@@ -78,7 +85,7 @@ ApplicationWindow {
 
     Component.onCompleted: {
         MaterialThemeLoader.reapplyTheme()
-        Config.readWriteDelay = 0 // Settings app always only sets one var at a time so delay isn't needed
+        Config.readWriteDelay = 0
     }
 
     minimumWidth: 750
@@ -98,7 +105,7 @@ ApplicationWindow {
                 if (event.key === Qt.Key_PageDown) {
                     root.currentPage = Math.min(root.currentPage + 1, root.pages.length - 1)
                     event.accepted = true;
-                } 
+                }
                 else if (event.key === Qt.Key_PageUp) {
                     root.currentPage = Math.max(root.currentPage - 1, 0)
                     event.accepted = true;
@@ -114,36 +121,45 @@ ApplicationWindow {
             }
         }
 
-        Item { // Titlebar
+        Item {
             visible: Config.options?.windows.showTitlebar
             Layout.fillWidth: true
             Layout.fillHeight: false
             implicitHeight: Math.max(titleText.implicitHeight, windowControlsRow.implicitHeight)
+
             StyledText {
                 id: titleText
+
                 anchors {
                     left: Config.options.windows.centerTitle ? undefined : parent.left
                     horizontalCenter: Config.options.windows.centerTitle ? parent.horizontalCenter : undefined
                     verticalCenter: parent.verticalCenter
                     leftMargin: 12
                 }
+
                 color: Appearance.colors.colOnLayer0
                 text: Translation.tr("Settings")
+
                 font {
                     family: Appearance.font.family.title
                     pixelSize: Appearance.font.pixelSize.title
                     variableAxes: Appearance.font.variableAxes.title
                 }
             }
-            RowLayout { // Window controls row
+
+            RowLayout {
                 id: windowControlsRow
+
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.right: parent.right
+
                 RippleButton {
                     buttonRadius: Appearance.rounding.full
                     implicitWidth: 35
                     implicitHeight: 35
+
                     onClicked: root.close()
+
                     contentItem: MaterialSymbol {
                         anchors.centerIn: parent
                         horizontalAlignment: Text.AlignHCenter
@@ -154,41 +170,51 @@ ApplicationWindow {
             }
         }
 
-        RowLayout { // Window content with navigation rail and content pane
+        RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: contentPadding
+
             Item {
                 id: navRailWrapper
+
                 Layout.fillHeight: true
                 Layout.margins: 5
                 implicitWidth: navRail.expanded ? 150 : fab.baseSize
+
                 Behavior on implicitWidth {
                     animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                 }
-                NavigationRail { // Window content with navigation rail and content pane
+
+                NavigationRail {
                     id: navRail
+
                     anchors {
                         left: parent.left
                         top: parent.top
                         bottom: parent.bottom
                     }
+
                     spacing: 10
                     expanded: root.width > 900
-                    
+
                     NavigationRailExpandButton {
                         focus: root.visible
                     }
 
                     FloatingActionButton {
                         id: fab
+
                         property bool justCopied: false
+
                         iconText: justCopied ? "check" : "edit"
                         buttonText: justCopied ? Translation.tr("Path copied") : Translation.tr("Config file")
                         expanded: navRail.expanded
+
                         downAction: () => {
                             Qt.openUrlExternally(`${Directories.config}/illogical-impulse/config.json`);
                         }
+
                         altAction: () => {
                             Quickshell.clipboardText = CF.FileUtils.trimFileProtocol(`${Directories.config}/illogical-impulse/config.json`);
                             fab.justCopied = true;
@@ -198,6 +224,7 @@ ApplicationWindow {
                         Timer {
                             id: revertTextTimer
                             interval: 1500
+
                             onTriggered: {
                                 fab.justCopied = false;
                             }
@@ -211,11 +238,14 @@ ApplicationWindow {
                     NavigationRailTabArray {
                         currentIndex: root.currentPage
                         expanded: navRail.expanded
+
                         Repeater {
                             model: root.pages
+
                             NavigationRailButton {
                                 required property var index
                                 required property var modelData
+
                                 toggled: root.currentPage === index
                                 onPressed: root.currentPage = index;
                                 expanded: navRail.expanded
@@ -232,24 +262,28 @@ ApplicationWindow {
                     }
                 }
             }
-            Rectangle { // Content container
+
+            Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+
                 color: Appearance.m3colors.m3surfaceContainerLow
                 radius: Appearance.rounding.windowRounding - root.contentPadding
 
                 Loader {
                     id: pageLoader
+
                     anchors.fill: parent
                     opacity: 1.0
-
                     active: Config.ready
+
                     Component.onCompleted: {
                         source = root.pages[0].component
                     }
 
                     Connections {
                         target: root
+
                         function onCurrentPageChanged() {
                             switchAnim.complete();
                             switchAnim.start();
@@ -268,18 +302,21 @@ ApplicationWindow {
                             easing.type: Appearance.animation.elementMoveExit.type
                             easing.bezierCurve: Appearance.animationCurves.emphasizedFirstHalf
                         }
+
                         ParallelAnimation {
                             PropertyAction {
                                 target: pageLoader
                                 property: "source"
                                 value: root.pages[root.currentPage].component
                             }
+
                             PropertyAction {
                                 target: pageLoader
                                 property: "anchors.topMargin"
                                 value: 20
                             }
                         }
+
                         ParallelAnimation {
                             NumberAnimation {
                                 target: pageLoader
@@ -290,6 +327,7 @@ ApplicationWindow {
                                 easing.type: Appearance.animation.elementMoveEnter.type
                                 easing.bezierCurve: Appearance.animationCurves.emphasizedLastHalf
                             }
+
                             NumberAnimation {
                                 target: pageLoader
                                 properties: "anchors.topMargin"
