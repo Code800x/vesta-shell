@@ -1,10 +1,12 @@
-
 """Shared Moebooru implementation."""
 
 import re
 from urllib.parse import urlencode
 
 from core.http import request_json
+
+
+PAGE_SIZE = 24
 
 
 def moebooru_ratings(purity):
@@ -26,6 +28,7 @@ def moebooru_sorting(sorting):
         "favorites": "score",
         "toplist": "score",
     }
+
     return mapping.get(sorting, "date")
 
 
@@ -41,11 +44,18 @@ def minimum_dimensions(value):
     return int(match.group(1)), int(match.group(2))
 
 
+def normalize_url(value):
+    return str(value or "").strip()
+
+
 def search(args, api):
     provider = args.provider
 
     tags = args.query.strip().split()
-    min_width, min_height = minimum_dimensions(args.resolutions)
+
+    min_width, min_height = minimum_dimensions(
+        args.resolutions
+    )
 
     if min_width:
         tags.append(f"width:>={min_width}")
@@ -61,37 +71,47 @@ def search(args, api):
         tags.append("order:random")
 
     ratings = moebooru_ratings(args.purity)
-    per_rating = 24
+
     combined = []
+    has_more = False
 
     for rating in ratings:
         rating_tags = tags + [f"rating:{rating}"]
 
         params = {
             "tags": " ".join(rating_tags),
-            "limit": per_rating,
+            "limit": PAGE_SIZE + 1,
             "page": args.page,
         }
 
-        payload = request_json(api + "?" + urlencode(params))
+        payload = request_json(
+            api + "?" + urlencode(params)
+        )
 
         if not isinstance(payload, list):
-            raise ValueError("Resposta inesperada do provedor.")
+            raise ValueError(
+                "Resposta inesperada do provedor."
+            )
 
-        for entry in payload:
+        # A consulta de um item adicional permite
+        # detectar a existência de outra página.
+        if len(payload) > PAGE_SIZE:
+            has_more = True
+
+        for entry in payload[:PAGE_SIZE]:
             if not isinstance(entry, dict):
                 continue
 
             image_id = entry.get("id")
-            image_url = (
+
+            image_url = normalize_url(
                 entry.get("file_url")
                 or entry.get("jpeg_url")
-                or ""
             )
-            thumb_url = (
+
+            thumb_url = normalize_url(
                 entry.get("preview_url")
                 or entry.get("sample_url")
-                or ""
             )
 
             if not image_id or not image_url or not thumb_url:
@@ -121,24 +141,42 @@ def search(args, api):
                     "q": "sketchy",
                     "e": "nsfw",
                 }.get(rating_code, "sfw"),
-                "score": int(entry.get("score") or 0),
+                "score": int(
+                    entry.get("score") or 0
+                ),
             })
 
-    seen = set()
+    # Remove publicações duplicadas e arquivos
+    # originais repetidos na mesma página.
+    seen_ids = set()
+    seen_urls = set()
     unique = []
 
     for item in combined:
-        if item["id"] in seen:
+        image_id = item["id"]
+        image_url = item["url"]
+
+        if image_id in seen_ids:
             continue
 
-        seen.add(item["id"])
+        if image_url in seen_urls:
+            continue
+
+        seen_ids.add(image_id)
+        seen_urls.add(image_url)
+
         unique.append(item)
 
-    if args.sorting in ("views", "favorites", "toplist"):
+    if args.sorting in (
+        "views",
+        "favorites",
+        "toplist",
+    ):
         unique.sort(
             key=lambda item: item["score"],
             reverse=True,
         )
+
     elif args.sorting == "date_added":
         unique.sort(
             key=lambda item: int(item["id"]),
@@ -148,11 +186,11 @@ def search(args, api):
     for item in unique:
         item.pop("score", None)
 
-    has_more = len(unique) >= per_rating
-
     return {
         "items": unique,
         "last_page": (
-            args.page + 1 if has_more else args.page
+            args.page + 1
+            if has_more
+            else args.page
         ),
     }

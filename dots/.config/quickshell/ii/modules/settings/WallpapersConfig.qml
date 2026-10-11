@@ -108,6 +108,7 @@ ContentPage {
 
                     HoverHandler {
                         id: hoverHandler
+                        cursorShape: Qt.PointingHandCursor
                     }
 
                     Rectangle {

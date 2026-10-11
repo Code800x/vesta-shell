@@ -4,6 +4,7 @@
 
 import argparse
 import json
+import signal
 import sys
 from urllib.error import HTTPError, URLError
 
@@ -15,6 +16,14 @@ from core.downloader import (
 )
 
 PURITY_OPTIONS = ("100", "110", "111")
+
+
+class DownloadCancelled(Exception):
+    pass
+
+
+def handle_termination(signum, frame):
+    raise DownloadCancelled()
 
 
 def emit(**data):
@@ -120,6 +129,11 @@ def main():
     )
     download_parser.add_argument("--url", required=True)
     download_parser.add_argument("--image-id", required=True)
+    download_parser.add_argument(
+        "--progress",
+        action="store_true",
+        help="Emite eventos JSON durante a transferência.",
+    )
 
     status_parser = subparsers.add_parser("status")
     status_parser.add_argument(
@@ -127,10 +141,7 @@ def main():
         choices=PROVIDERS.keys(),
         required=True,
     )
-    status_parser.add_argument(
-        "--image-id",
-        required=True,
-    )
+    status_parser.add_argument("--image-id", required=True)
 
     batch_parser = subparsers.add_parser("status-batch")
     batch_parser.add_argument(
@@ -158,7 +169,6 @@ def main():
                 raise ValueError(
                     "Número de página inválido."
                 )
-
             search(args)
 
         elif args.action == "status":
@@ -168,7 +178,23 @@ def main():
             status_batch(args)
 
         elif args.action == "download":
+            signal.signal(
+                signal.SIGTERM,
+                handle_termination,
+            )
+            signal.signal(
+                signal.SIGINT,
+                handle_termination,
+            )
             download(args)
+
+    except DownloadCancelled:
+        emit(
+            ok=False,
+            cancelled=True,
+            error="Download cancelado.",
+        )
+        sys.exit(130)
 
     except (
         ValueError,

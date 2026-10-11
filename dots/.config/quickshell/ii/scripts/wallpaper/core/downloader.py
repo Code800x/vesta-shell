@@ -1,5 +1,5 @@
 
-"""Validated wallpaper download and cache handling."""
+"""Validated wallpaper download, cache and progress handling."""
 
 import json
 import os
@@ -26,9 +26,7 @@ def validate_image_id(image_id):
 
 
 def cached_wallpaper(provider, image_id):
-    """Retorna o arquivo local, se existir e não estiver vazio."""
     validate_image_id(image_id)
-
     directory = DESTINATION / provider.capitalize()
 
     for suffix in ALLOWED_EXTENSIONS:
@@ -41,14 +39,10 @@ def cached_wallpaper(provider, image_id):
 
 
 def cached_wallpapers(provider, image_ids):
-    """Consulta vários wallpapers sem acesso à rede."""
     result = {}
 
     for image_id in image_ids:
-        validate_image_id(image_id)
-
         path = cached_wallpaper(provider, image_id)
-
         result[image_id] = {
             "cached": path is not None,
             "path": path,
@@ -105,12 +99,19 @@ def download(args):
     suffix = validate_image_url(args.provider, args.url)
     validate_image_id(args.image_id)
 
+    progress_enabled = bool(getattr(args, "progress", False))
+
+    def event(name, **values):
+        if progress_enabled:
+            emit(event=name, **values)
+
     existing = cached_wallpaper(
         args.provider,
         args.image_id,
     )
 
     if existing is not None:
+        event("cached", path=existing)
         emit(ok=True, path=existing, cached=True)
         return
 
@@ -130,7 +131,6 @@ def download(args):
         with os.fdopen(fd, "wb") as output:
             with fetch(args.url, accept="image/*") as response:
                 final_url = response.geturl()
-
                 validate_image_url(args.provider, final_url)
 
                 content_type = response.headers.get(
@@ -142,7 +142,25 @@ def download(args):
                         "O servidor não retornou uma imagem."
                     )
 
-                total = 0
+                length_header = response.headers.get(
+                    "Content-Length", ""
+                )
+
+                try:
+                    expected = int(length_header)
+                except (TypeError, ValueError):
+                    expected = 0
+
+                if expected < 0 or expected > MAX_BYTES:
+                    raise ValueError(
+                        "Imagem excede o limite de 50 MB."
+                    )
+
+                event("started", total=expected)
+
+                transferred = 0
+                last_percentage = -1
+                last_reported_bytes = 0
 
                 while True:
                     chunk = response.read(65536)
@@ -150,18 +168,46 @@ def download(args):
                     if not chunk:
                         break
 
-                    total += len(chunk)
+                    transferred += len(chunk)
 
-                    if total > MAX_BYTES:
+                    if transferred > MAX_BYTES:
                         raise ValueError(
                             "Imagem excede o limite de 50 MB."
                         )
 
                     output.write(chunk)
 
-                if total == 0:
+                    percentage = (
+                        min(100, int(transferred * 100 / expected))
+                        if expected > 0
+                        else -1
+                    )
+
+                    should_report = (
+                        percentage != last_percentage
+                        if expected > 0
+                        else transferred - last_reported_bytes
+                        >= 256 * 1024
+                    )
+
+                    if should_report:
+                        event(
+                            "progress",
+                            downloaded=transferred,
+                            total=expected,
+                            percentage=percentage,
+                        )
+                        last_percentage = percentage
+                        last_reported_bytes = transferred
+
+                if transferred == 0:
                     raise ValueError(
                         "O arquivo recebido está vazio."
+                    )
+
+                if expected > 0 and transferred != expected:
+                    raise ValueError(
+                        "Download incompleto."
                     )
 
         os.replace(temporary, target)
@@ -169,5 +215,12 @@ def download(args):
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
+
+    event(
+        "progress",
+        downloaded=transferred,
+        total=expected,
+        percentage=100,
+    )
 
     emit(ok=True, path=str(target), cached=False)
