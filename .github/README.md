@@ -218,6 +218,86 @@ Restart the relevant Quickshell process to load the updated settings interface.
 
 Before reloading Hyprland, check that existing monitor rules do not conflict with the generated Lua configuration.
 
+## Installing Wallpapers and Keyboard into an existing end4 configuration
+
+Vesta Shell includes `instalar-wallpapers.py` to add **static wallpapers**, **animated/video wallpapers**, and **keyboard layout settings** to a compatible existing end4 configuration. It does **not** replace the entire shell.
+
+The installer reads module files from its own repository directory and installs them into `~/.config/quickshell/ii`. It can also integrate the keyboard settings UI; keyboard layout persistence depends on a compatible Hyprland Lua setup.
+
+### Installation
+
+Clone the feature branch that includes the wallpaper module:
+
+```bash
+git clone --branch feat/live-wallpaper https://github.com/Code800x/vesta-shell.git
+cd vesta-shell
+```
+
+**Preview changes first** (no files or system packages are changed):
+
+```bash
+python3 instalar-wallpapers.py --dry-run
+```
+
+If the preview succeeds, run:
+
+```bash
+python3 instalar-wallpapers.py
+```
+
+If the repository is already cloned, run the two commands from its root directory instead of cloning again.
+
+### Dependencies
+
+The installer checks for `python3`, `ffmpeg`, `ffprobe`, `mpv`, `mpvpaper`, `patch`, and `git`, and attempts to install missing packages using the detected package manager (`pacman`, `dnf`, `zypper`, or `apt-get`). `mpvpaper` is the video wallpaper renderer; `mpv` and FFmpeg support video playback and processing.
+
+On Arch-based systems, installing `mpvpaper` may require `paru` or `yay`. Other distributions may need an additional repository or manual installation if a package is unavailable. The installer reports failures rather than ignoring them.
+
+To preview installation **without allowing package installation**, use:
+
+```bash
+python3 instalar-wallpapers.py --dry-run --no-packages
+```
+
+To install only when all required executables are already available:
+
+```bash
+python3 instalar-wallpapers.py --no-packages
+```
+
+### What the installer integrates
+
+- Static wallpaper browser and its providers (Wallhaven, Konachan, and Yande.re).
+- Online and local animated/video wallpaper browser, including DesktopHut, MoeWalls, and MotionBGS support.
+- Shared Python search, download, caching, and provider modules.
+- `WallpapersConfig.qml` and its settings navigation entry.
+- Keyboard layout UI (`KeyboardLayoutConfig.qml`) and its Python helper, integrated with `GeneralConfig.qml`.
+- Compatible translation entries without replacing unrelated translations.
+
+The installer attempts to preserve existing end4 customizations. It refuses conflicting integrations rather than silently replacing incompatible settings files.
+
+### Backups and recovery
+
+Before changing existing configuration files, the installer saves a backup under:
+
+```text
+~/Backups/end4-vesta-wallpapers-<timestamp>/
+```
+
+The backup includes `manifest.json`, listing affected paths and whether each file existed before installation. **Uninstallation is currently manual**: restore the backed-up files and delete newly created files listed in the manifest, then restart Quickshell. Packages installed by the script are not automatically removed.
+
+### After installing
+
+Restart the relevant Quickshell process or reopen the end4 settings interface to load the new pages. For a direct settings test:
+
+```bash
+qs -p ~/.config/quickshell/ii/settings.qml
+```
+
+Verify that Wallpapers and Keyboard settings appear and test static and video wallpapers. The installer does not restart Quickshell or Hyprland automatically.
+
+**Compatibility:** The installer targets an end4 layout compatible with the Vesta Shell integration baseline. It is not guaranteed to work with every fork or heavily customized version. A successful `--dry-run` confirms that the planned file changes passed preliminary checks, not that every QML component will work at runtime.
+
 ## Development roadmap
 
 - [x] Monitor detection.
@@ -229,7 +309,8 @@ Before reloading Hyprland, check that existing monitor rules do not conflict wit
 - [x] Display change confirmation and rollback.
 - [x] Persistent monitor configuration.
 - [x] Display module integration installer.
-- [ ] Keyboard layout configuration.
+- [x] Static and animated wallpaper module integration installer.
+- [x] Keyboard layout configuration.
 - [ ] Extended system settings.
 - [ ] More flexible appearance customization.
 - [ ] Improved portability between configurations.
