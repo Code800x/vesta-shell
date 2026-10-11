@@ -23,7 +23,8 @@ ContentPage {
 
             text:
                 "Explore, selecione e aplique papéis de " +
-                "parede diretamente pelo Vesta Shell."
+                "parede estáticos ou animados diretamente " +
+                "pelo Vesta Shell."
 
             wrapMode: Text.WordWrap
 
@@ -36,6 +37,10 @@ ContentPage {
     }
 
     SettingsComponents.WallpaperBrowser {
+        Layout.fillWidth: true
+    }
+
+    SettingsComponents.LiveWallpaperOnlineBrowser {
         Layout.fillWidth: true
     }
 
