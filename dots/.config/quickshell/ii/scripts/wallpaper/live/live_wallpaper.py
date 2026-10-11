@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """CLI de wallpapers animados do Vesta Shell."""
 
@@ -6,12 +5,17 @@ import argparse
 import json
 import re
 import sys
+
 from urllib.error import HTTPError, URLError
 
 from core import (
     identifier,
-    save_wallpaper,
     validate_url,
+)
+from downloader import (
+    DownloadCancelled,
+    cached_wallpaper,
+    download_wallpaper,
 )
 from providers.desktophut import DesktopHut
 from providers.motionbgs import MotionBGS
@@ -30,9 +34,38 @@ PROVIDERS = {
 
 def emit(**data):
     print(
-        json.dumps(data, ensure_ascii=False),
+        json.dumps(
+            data,
+            ensure_ascii=False,
+        ),
         flush=True,
     )
+
+
+def validate_item(args):
+    provider = PROVIDERS[args.provider]
+
+    if not re.fullmatch(
+        r"[0-9a-f]{20}",
+        args.image_id,
+    ):
+        raise ValueError(
+            "Identificador do wallpaper inválido."
+        )
+
+    if hasattr(args, "url") and args.url:
+        validate_url(
+            args.url,
+            provider.hosts,
+        )
+
+        if identifier(args.url) != args.image_id:
+            raise ValueError(
+                "O identificador não corresponde "
+                "ao wallpaper solicitado."
+            )
+
+    return provider
 
 
 def list_providers():
@@ -71,42 +104,68 @@ def search(args):
     )
 
 
+def status(args):
+    provider = validate_item(args)
+
+    path = cached_wallpaper(
+        provider.code,
+        args.image_id,
+    )
+
+    emit(
+        ok=True,
+        cached=path is not None,
+        path=path,
+    )
+
+
 def download(args):
-    provider = PROVIDERS[args.provider]
+    provider = validate_item(args)
 
     if not provider.download:
         raise ValueError(
             "Este provedor não permite download."
         )
 
-    validate_url(args.url, provider.hosts)
-
-    if not re.fullmatch(
-        r"[0-9a-f]{20}",
+    existing = cached_wallpaper(
+        provider.code,
         args.image_id,
-    ):
-        raise ValueError(
-            "Identificador do wallpaper inválido."
+    )
+
+    if existing:
+        if args.events:
+            emit(
+                event="cached",
+                path=existing,
+            )
+
+        emit(
+            ok=True,
+            path=existing,
+            cached=True,
         )
+        return
 
-    if identifier(args.url) != args.image_id:
-        raise ValueError(
-            "O identificador não corresponde "
-            "ao wallpaper solicitado."
-        )
+    source = provider.resolve(
+        args.url
+    )
 
-    source = provider.resolve(args.url)
+    def progress(event):
+        if args.events:
+            emit(**event)
 
-    path = save_wallpaper(
+    path, from_cache = download_wallpaper(
         provider.code,
         args.image_id,
         source,
         provider.hosts,
+        callback=progress,
     )
 
     emit(
         ok=True,
         path=path,
+        cached=from_cache,
     )
 
 
@@ -150,6 +209,22 @@ def main():
         default=1,
     )
 
+    status_cmd = commands.add_parser(
+        "status",
+        help="Consulta o cache de um wallpaper.",
+    )
+
+    status_cmd.add_argument(
+        "--provider",
+        choices=PROVIDERS,
+        required=True,
+    )
+
+    status_cmd.add_argument(
+        "--image-id",
+        required=True,
+    )
+
     download_cmd = commands.add_parser(
         "download",
         help="Baixa o wallpaper original.",
@@ -171,6 +246,15 @@ def main():
         required=True,
     )
 
+    download_cmd.add_argument(
+        "--events",
+        action="store_true",
+        help=(
+            "Emite eventos JSON de progresso "
+            "durante o download."
+        ),
+    )
+
     args = parser.parse_args()
 
     try:
@@ -180,8 +264,19 @@ def main():
         elif args.action == "search":
             search(args)
 
+        elif args.action == "status":
+            status(args)
+
         elif args.action == "download":
             download(args)
+
+    except DownloadCancelled as error:
+        emit(
+            ok=False,
+            cancelled=True,
+            error=str(error),
+        )
+        sys.exit(130)
 
     except (
         ValueError,
