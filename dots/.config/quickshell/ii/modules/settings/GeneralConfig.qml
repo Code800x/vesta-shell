@@ -1,3 +1,4 @@
+
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -6,6 +7,7 @@ import qs.services
 import qs.modules.common
 import qs.modules.common.functions
 import qs.modules.common.widgets
+import "./components" as SettingsComponents
 
 ContentPage {
     forceWidth: true
@@ -31,8 +33,10 @@ ContentPage {
                 text: Translation.tr("Prevents abrupt increments and restricts volume limit")
             }
         }
+
         ConfigRow {
             enabled: Config.options.audio.protection.enable
+
             ConfigSpinBox {
                 icon: "arrow_warm_up"
                 text: Translation.tr("Max allowed increase")
@@ -44,12 +48,13 @@ ContentPage {
                     Config.options.audio.protection.maxAllowedIncrease = value;
                 }
             }
+
             ConfigSpinBox {
                 icon: "vertical_align_top"
                 text: Translation.tr("Volume limit")
                 value: Config.options.audio.protection.maxAllowed
                 from: 0
-                to: 154 // pavucontrol allows up to 153%
+                to: 154
                 stepSize: 2
                 onValueChanged: {
                     Config.options.audio.protection.maxAllowed = value;
@@ -64,6 +69,7 @@ ContentPage {
 
         ConfigRow {
             uniform: true
+
             ConfigSpinBox {
                 icon: "warning"
                 text: Translation.tr("Low warning")
@@ -75,6 +81,7 @@ ContentPage {
                     Config.options.battery.low = value;
                 }
             }
+
             ConfigSpinBox {
                 icon: "dangerous"
                 text: Translation.tr("Critical warning")
@@ -87,9 +94,11 @@ ContentPage {
                 }
             }
         }
+
         ConfigRow {
             uniform: false
             Layout.fillWidth: false
+
             ConfigSwitch {
                 buttonIcon: "pause"
                 text: Translation.tr("Automatic suspend")
@@ -101,6 +110,7 @@ ContentPage {
                     text: Translation.tr("Automatically suspends the system when battery is low")
                 }
             }
+
             ConfigSpinBox {
                 enabled: Config.options.battery.automaticSuspend
                 text: Translation.tr("at")
@@ -113,8 +123,10 @@ ContentPage {
                 }
             }
         }
+
         ConfigRow {
             uniform: true
+
             ConfigSpinBox {
                 icon: "charger"
                 text: Translation.tr("Full warning")
@@ -152,7 +164,8 @@ ContentPage {
                             displayName: lang,
                             value: lang
                         };
-                    })]
+                    })
+                ]
 
                 currentIndex: {
                     const index = model.findIndex(item => item.value === Config.options.language.ui);
@@ -164,6 +177,7 @@ ContentPage {
                 }
             }
         }
+
         ContentSubsection {
             title: Translation.tr("Generate translation with Gemini")
             tooltip: Translation.tr("You'll need to enter your Gemini API key first.\nType /key on the sidebar for instructions.")
@@ -175,12 +189,14 @@ ContentPage {
                     placeholderText: Translation.tr("Locale code, e.g. fr_FR, de_DE, zh_CN...")
                     text: Config.options.language.ui === "auto" ? Qt.locale().name : Config.options.language.ui
                 }
+
                 RippleButtonWithIcon {
                     id: generateTranslationBtn
                     Layout.fillHeight: true
                     nerdIcon: ""
                     enabled: !translationProc.running || (translationProc.locale !== localeInput.text.trim())
                     mainText: enabled ? Translation.tr("Generate\nTypically takes 2 minutes") : Translation.tr("Generating...\nDon't close this window!")
+
                     onClicked: {
                         translationProc.locale = localeInput.text.trim();
                         translationProc.running = false;
@@ -189,6 +205,10 @@ ContentPage {
                 }
             }
         }
+
+        SettingsComponents.KeyboardLayoutConfig {
+            Layout.fillWidth: true
+        }
     }
 
     ContentSection {
@@ -196,8 +216,6 @@ ContentPage {
         title: Translation.tr("Policies")
 
         ConfigRow {
-
-            // AI policy
             ColumnLayout {
                 ContentSubsectionLabel {
                     text: Translation.tr("AI")
@@ -205,9 +223,11 @@ ContentPage {
 
                 ConfigSelectionArray {
                     currentValue: Config.options.policies.ai
+
                     onSelected: newValue => {
                         Config.options.policies.ai = newValue;
                     }
+
                     options: [
                         {
                             displayName: Translation.tr("No"),
@@ -228,18 +248,18 @@ ContentPage {
                 }
             }
 
-            // Weeb policy
             ColumnLayout {
-
                 ContentSubsectionLabel {
                     text: Translation.tr("Weeb")
                 }
 
                 ConfigSelectionArray {
                     currentValue: Config.options.policies.weeb
+
                     onSelected: newValue => {
                         Config.options.policies.weeb = newValue;
                     }
+
                     options: [
                         {
                             displayName: Translation.tr("No"),
@@ -265,8 +285,10 @@ ContentPage {
     ContentSection {
         icon: "notification_sound"
         title: Translation.tr("Sounds")
+
         ConfigRow {
             uniform: true
+
             ConfigSwitch {
                 buttonIcon: "battery_android_full"
                 text: Translation.tr("Battery")
@@ -275,6 +297,7 @@ ContentPage {
                     Config.options.sounds.battery = checked;
                 }
             }
+
             ConfigSwitch {
                 buttonIcon: "av_timer"
                 text: Translation.tr("Pomodoro")
@@ -294,9 +317,11 @@ ContentPage {
             buttonIcon: "pace"
             text: Translation.tr("Second precision")
             checked: Config.options.time.secondPrecision
+
             onCheckedChanged: {
                 Config.options.time.secondPrecision = checked;
             }
+
             StyledToolTip {
                 text: Translation.tr("Enable if you want clocks to show seconds accurately")
             }
@@ -308,6 +333,7 @@ ContentPage {
 
             ConfigSelectionArray {
                 currentValue: Config.options.time.format
+
                 onSelected: newValue => {
                     if (newValue === "hh:mm") {
                         Quickshell.execDetached(["bash", "-c", `sed -i 's/\\TIME12\\b/TIME/' '${FileUtils.trimFileProtocol(Directories.config)}/hypr/hyprlock.conf'`]);
@@ -317,6 +343,7 @@ ContentPage {
 
                     Config.options.time.format = newValue;
                 }
+
                 options: [
                     {
                         displayName: Translation.tr("24h"),
@@ -329,7 +356,7 @@ ContentPage {
                     {
                         displayName: Translation.tr("12h AM/PM"),
                         value: "h:mm AP"
-                    },
+                    }
                 ]
             }
         }
@@ -343,14 +370,17 @@ ContentPage {
             buttonIcon: "assignment"
             text: Translation.tr("Hide clipboard images copied from sussy sources")
             checked: Config.options.workSafety.enable.clipboard
+
             onCheckedChanged: {
                 Config.options.workSafety.enable.clipboard = checked;
             }
         }
+
         ConfigSwitch {
             buttonIcon: "wallpaper"
             text: Translation.tr("Hide sussy/anime wallpapers")
             checked: Config.options.workSafety.enable.wallpaper
+
             onCheckedChanged: {
                 Config.options.workSafety.enable.wallpaper = checked;
             }
