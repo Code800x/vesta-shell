@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """CLI de wallpapers animados do Vesta Shell."""
 
@@ -5,13 +6,9 @@ import argparse
 import json
 import re
 import sys
-
 from urllib.error import HTTPError, URLError
 
-from core import (
-    identifier,
-    validate_url,
-)
+from core import identifier, validate_url
 from downloader import (
     DownloadCancelled,
     cached_wallpaper,
@@ -31,33 +28,24 @@ PROVIDERS = {
     )
 }
 
+ID_PATTERN = re.compile(r"[0-9a-f]{20}")
+
 
 def emit(**data):
-    print(
-        json.dumps(
-            data,
-            ensure_ascii=False,
-        ),
-        flush=True,
-    )
+    print(json.dumps(data, ensure_ascii=False), flush=True)
+
+
+def validate_id(image_id):
+    if not ID_PATTERN.fullmatch(image_id):
+        raise ValueError("Identificador do wallpaper inválido.")
 
 
 def validate_item(args):
     provider = PROVIDERS[args.provider]
-
-    if not re.fullmatch(
-        r"[0-9a-f]{20}",
-        args.image_id,
-    ):
-        raise ValueError(
-            "Identificador do wallpaper inválido."
-        )
+    validate_id(args.image_id)
 
     if hasattr(args, "url") and args.url:
-        validate_url(
-            args.url,
-            provider.hosts,
-        )
+        validate_url(args.url, provider.hosts)
 
         if identifier(args.url) != args.image_id:
             raise ValueError(
@@ -84,16 +72,10 @@ def list_providers():
 
 def search(args):
     if not 1 <= args.page <= 100:
-        raise ValueError(
-            "A página deve estar entre 1 e 100."
-        )
+        raise ValueError("A página deve estar entre 1 e 100.")
 
     provider = PROVIDERS[args.provider]
-
-    result = provider.search(
-        args.query,
-        args.page,
-    )
+    result = provider.search(args.query, args.page)
 
     emit(
         ok=True,
@@ -106,16 +88,36 @@ def search(args):
 
 def status(args):
     provider = validate_item(args)
-
-    path = cached_wallpaper(
-        provider.code,
-        args.image_id,
-    )
+    path = cached_wallpaper(provider.code, args.image_id)
 
     emit(
         ok=True,
         cached=path is not None,
         path=path,
+    )
+
+
+def status_batch(args):
+    if len(args.image_ids) > 200:
+        raise ValueError(
+            "O limite é de 200 wallpapers por consulta."
+        )
+
+    items = {}
+
+    for image_id in args.image_ids:
+        validate_id(image_id)
+        path = cached_wallpaper(args.provider, image_id)
+
+        items[image_id] = {
+            "cached": path is not None,
+            "path": path,
+        }
+
+    emit(
+        ok=True,
+        provider=args.provider,
+        items=items,
     )
 
 
@@ -134,10 +136,7 @@ def download(args):
 
     if existing:
         if args.events:
-            emit(
-                event="cached",
-                path=existing,
-            )
+            emit(event="cached", path=existing)
 
         emit(
             ok=True,
@@ -146,9 +145,7 @@ def download(args):
         )
         return
 
-    source = provider.resolve(
-        args.url
-    )
+    source = provider.resolve(args.url)
 
     def progress(event):
         if args.events:
@@ -191,37 +188,37 @@ def main():
         "search",
         help="Pesquisa wallpapers animados.",
     )
-
     search_cmd.add_argument(
         "--provider",
         choices=PROVIDERS,
         default="desktophut",
     )
-
-    search_cmd.add_argument(
-        "--query",
-        default="",
-    )
-
-    search_cmd.add_argument(
-        "--page",
-        type=int,
-        default=1,
-    )
+    search_cmd.add_argument("--query", default="")
+    search_cmd.add_argument("--page", type=int, default=1)
 
     status_cmd = commands.add_parser(
         "status",
         help="Consulta o cache de um wallpaper.",
     )
-
     status_cmd.add_argument(
         "--provider",
         choices=PROVIDERS,
         required=True,
     )
+    status_cmd.add_argument("--image-id", required=True)
 
-    status_cmd.add_argument(
-        "--image-id",
+    batch_cmd = commands.add_parser(
+        "status-batch",
+        help="Consulta o cache de vários wallpapers.",
+    )
+    batch_cmd.add_argument(
+        "--provider",
+        choices=PROVIDERS,
+        required=True,
+    )
+    batch_cmd.add_argument(
+        "--image-ids",
+        nargs="+",
         required=True,
     )
 
@@ -229,30 +226,17 @@ def main():
         "download",
         help="Baixa o wallpaper original.",
     )
-
     download_cmd.add_argument(
         "--provider",
         choices=PROVIDERS,
         required=True,
     )
-
-    download_cmd.add_argument(
-        "--url",
-        required=True,
-    )
-
-    download_cmd.add_argument(
-        "--image-id",
-        required=True,
-    )
-
+    download_cmd.add_argument("--url", required=True)
+    download_cmd.add_argument("--image-id", required=True)
     download_cmd.add_argument(
         "--events",
         action="store_true",
-        help=(
-            "Emite eventos JSON de progresso "
-            "durante o download."
-        ),
+        help="Emite eventos JSON durante o download.",
     )
 
     args = parser.parse_args()
@@ -260,13 +244,12 @@ def main():
     try:
         if args.action == "providers":
             list_providers()
-
         elif args.action == "search":
             search(args)
-
         elif args.action == "status":
             status(args)
-
+        elif args.action == "status-batch":
+            status_batch(args)
         elif args.action == "download":
             download(args)
 
@@ -286,10 +269,7 @@ def main():
         TimeoutError,
         EOFError,
     ) as error:
-        emit(
-            ok=False,
-            error=str(error),
-        )
+        emit(ok=False, error=str(error))
         sys.exit(1)
 
 

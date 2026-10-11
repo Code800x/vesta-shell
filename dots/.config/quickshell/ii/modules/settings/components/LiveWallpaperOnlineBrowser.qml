@@ -31,10 +31,12 @@ ContentSection {
     property bool hasError: false
     property bool providersLoaded: false
 
+    // Cache da página atual: { wallpaperId: caminhoLocal }
+    property var cachedPaths: ({})
     property string cachedPath: ""
     property bool checkingCache: false
+    property bool cacheBatchPending: false
 
-    // Caminho registrado pela infraestrutura existente do Vesta Shell.
     readonly property string activeWallpaperPath:
         Config.options.background.wallpaperPath || ""
 
@@ -75,6 +77,39 @@ ContentSection {
             value = decodeURIComponent(value.substring(7));
 
         return value.replace(/\/+$/, "");
+    }
+
+    function cachedPathFor(item) {
+        if (!item || !item.id)
+            return "";
+
+        return String(cachedPaths[item.id] || "");
+    }
+
+    function isItemActive(item) {
+        const path = cachedPathFor(item);
+
+        return path.length > 0 &&
+            normalizedPath(path) ===
+                normalizedPath(activeWallpaperPath);
+    }
+
+    function updateCachedPath(id, path) {
+        const updated = Object.assign({}, cachedPaths);
+
+        if (path && String(path).length > 0)
+            updated[id] = String(path);
+        else
+            delete updated[id];
+
+        cachedPaths = updated;
+
+        if (
+            selectedWallpaper !== null &&
+            selectedWallpaper.id === id
+        ) {
+            cachedPath = String(path || "");
+        }
     }
 
     function providerIndex(code) {
@@ -140,8 +175,20 @@ ContentSection {
             clearSelection();
         } else {
             selectedWallpaper = item;
-            cachedPath = "";
-            checkSelectedCache();
+            cachedPath = cachedPathFor(item);
+
+            // A consulta individual só é necessária se a
+            // consulta em lote ainda estiver pendente.
+            if (
+                !cacheBatchPending &&
+                !batchProc.running &&
+                cachedPath.length === 0
+            ) {
+                checkSelectedCache();
+            } else {
+                checkingCache = cacheBatchPending ||
+                    batchProc.running;
+            }
         }
 
         feedback = "";
@@ -153,7 +200,6 @@ ContentSection {
             return;
 
         checkingCache = true;
-        cachedPath = "";
 
         statusProc.command = [
             "python3",
@@ -166,6 +212,54 @@ ContentSection {
         ];
 
         statusProc.running = true;
+    }
+
+    function refreshCacheBatch() {
+        if (batchProc.running) {
+            cacheBatchPending = true;
+            return;
+        }
+
+        cacheBatchPending = false;
+
+        if (results.length === 0) {
+            cachedPaths = ({});
+            checkingCache = false;
+            return;
+        }
+
+        const ids = [];
+        const seen = {};
+
+        for (let i = 0; i < results.length; i++) {
+            const id = String(results[i].id || "");
+
+            if (id.length === 0 || seen[id])
+                continue;
+
+            seen[id] = true;
+            ids.push(id);
+        }
+
+        if (ids.length === 0) {
+            cachedPaths = ({});
+            checkingCache = false;
+            return;
+        }
+
+        batchProc.requestedProvider = provider;
+        batchProc.requestedIds = ids.join(",");
+
+        batchProc.command = [
+            "python3",
+            scriptPath,
+            "status-batch",
+            "--provider",
+            provider,
+            "--image-ids"
+        ].concat(ids);
+
+        batchProc.running = true;
     }
 
     function refreshProviders() {
@@ -195,6 +289,7 @@ ContentSection {
         }
 
         clearSelection();
+        cachedPaths = ({});
 
         feedback = "Pesquisando wallpapers animados...";
         hasError = false;
@@ -252,7 +347,6 @@ ContentSection {
         const item = selectedWallpaper;
 
         resetDownloadState();
-
         downloadStage = "Preparando download...";
 
         feedback = "Baixando " +
@@ -286,7 +380,6 @@ ContentSection {
         cancelRequested = true;
         downloadStage = "Cancelando download...";
         feedback = "Interrompendo transferência...";
-
         downloadProc.running = false;
     }
 
@@ -468,8 +561,11 @@ ContentSection {
 
                 grid.positionViewAtBeginning();
 
+                root.refreshCacheBatch();
+
             } catch (error) {
                 root.results = [];
+                root.cachedPaths = ({});
                 root.lastPage = root.page;
                 root.hasError = true;
 
@@ -479,6 +575,77 @@ ContentSection {
                         searchErrors.text,
                         error.message
                     );
+            }
+        }
+    }
+
+    Process {
+        id: batchProc
+        running: false
+
+        property string requestedProvider: ""
+        property string requestedIds: ""
+
+        stdout: StdioCollector {
+            id: batchOutput
+        }
+
+        stderr: StdioCollector {
+            id: batchErrors
+        }
+
+        onExited: (exitCode, exitStatus) => {
+            if (
+                root.cacheBatchPending ||
+                requestedProvider !== root.provider ||
+                requestedIds !== root.results
+                    .map(item => String(item.id || ""))
+                    .filter(id => id.length > 0)
+                    .filter((id, index, array) =>
+                        array.indexOf(id) === index)
+                    .join(",")
+            ) {
+                root.refreshCacheBatch();
+                return;
+            }
+
+            try {
+                const data = JSON.parse(
+                    batchOutput.text.trim()
+                );
+
+                if (exitCode !== 0 || data.ok !== true) {
+                    throw new Error(
+                        data.error || "Falha na consulta em lote."
+                    );
+                }
+
+                const paths = {};
+                const items = data.items || {};
+
+                for (const id of Object.keys(items)) {
+                    if (items[id].cached && items[id].path)
+                        paths[id] = String(items[id].path);
+                }
+
+                root.cachedPaths = paths;
+
+                if (root.selectedWallpaper !== null) {
+                    root.cachedPath = root.cachedPathFor(
+                        root.selectedWallpaper
+                    );
+                }
+
+                root.checkingCache = false;
+
+            } catch (error) {
+                console.warn(
+                    "[LiveWallpaperOnlineBrowser] Cache em lote:",
+                    error.message,
+                    batchErrors.text
+                );
+
+                root.checkingCache = false;
             }
         }
     }
@@ -526,9 +693,14 @@ ContentSection {
                 if (exitCode !== 0 || data.ok !== true)
                     throw new Error(data.error || "Falha no cache.");
 
-                root.cachedPath = data.cached === true
+                const path = data.cached === true
                     ? String(data.path || "")
                     : "";
+
+                root.updateCachedPath(
+                    requestedId,
+                    path
+                );
 
             } catch (error) {
                 root.cachedPath = "";
@@ -577,11 +749,19 @@ ContentSection {
                 data.ok === true &&
                 data.path
             ) {
-                root.cachedPath = String(data.path);
+                const path = String(data.path);
+
+                if (root.selectedWallpaper !== null) {
+                    root.updateCachedPath(
+                        root.selectedWallpaper.id,
+                        path
+                    );
+                }
+
                 root.downloadStage = "";
                 root.hasError = false;
 
-                Wallpapers.apply(root.cachedPath);
+                Wallpapers.apply(path);
 
                 root.feedback = data.cached === true
                     ? "Wallpaper do cache enviado para aplicação."
@@ -780,6 +960,12 @@ ContentSection {
                     root.selectedWallpaper !== null &&
                     root.selectedWallpaper.id === modelData.id
 
+                readonly property string localPath:
+                    root.cachedPathFor(modelData)
+
+                readonly property bool isActive:
+                    root.isItemActive(modelData)
+
                 width: grid.cellWidth
                 height: grid.cellHeight
 
@@ -880,26 +1066,47 @@ ContentSection {
                         anchors.margins: 7
 
                         visible:
-                            wallpaperDelegate.isSelected &&
-                            root.cachedPath.length > 0
+                            wallpaperDelegate.localPath.length > 0
 
                         width: cachedLabel.implicitWidth + 16
                         height: 25
                         radius: Appearance.rounding.small
-                        color: Appearance.colors.colPrimaryContainer
 
-                        StyledText {
-                            id: cachedLabel
+                        color:
+                            wallpaperDelegate.isActive
+                                ? Appearance.colors.colPrimary
+                                : Appearance.colors.colPrimaryContainer
+
+                        Row {
                             anchors.centerIn: parent
+                            spacing: 4
 
-                            text: root.selectedIsActive
-                                ? "Em uso"
-                                : "Já baixado"
+                            MaterialSymbol {
+                                text: wallpaperDelegate.isActive
+                                    ? "check_circle"
+                                    : "download_done"
 
-                            color: Appearance.colors.colOnPrimaryContainer
+                                iconSize: 14
 
-                            font.pixelSize:
-                                Appearance.font.pixelSize.smaller
+                                color: wallpaperDelegate.isActive
+                                    ? Appearance.colors.colOnPrimary
+                                    : Appearance.colors.colOnPrimaryContainer
+                            }
+
+                            StyledText {
+                                id: cachedLabel
+
+                                text: wallpaperDelegate.isActive
+                                    ? "Em uso"
+                                    : "Já baixado"
+
+                                color: wallpaperDelegate.isActive
+                                    ? Appearance.colors.colOnPrimary
+                                    : Appearance.colors.colOnPrimaryContainer
+
+                                font.pixelSize:
+                                    Appearance.font.pixelSize.smaller
+                            }
                         }
                     }
 
@@ -910,11 +1117,9 @@ ContentSection {
 
                         visible: wallpaperDelegate.isSelected
 
-                        text: root.selectedIsActive
-                            ? "check_circle"
-                            : "check_circle"
-
+                        text: "check_circle"
                         iconSize: 25
+
                         color: Appearance.colors.colPrimary
                     }
 
