@@ -1,12 +1,18 @@
-"""Shared Moebooru implementation."""
+
+"""Implementação compartilhada dos provedores Moebooru."""
 
 import re
 from urllib.parse import urlencode
 
 from core.http import request_json
+from common.search_service import (
+    CachedApiSearch,
+    pagination_result,
+)
 
 
 PAGE_SIZE = 24
+search_cache = CachedApiSearch(ttl=1800)
 
 
 def moebooru_ratings(purity):
@@ -36,12 +42,20 @@ def minimum_dimensions(value):
     if not value:
         return 0, 0
 
-    match = re.fullmatch(r"(\d+)x(\d+)", value)
+    match = re.fullmatch(
+        r"(\d+)x(\d+)",
+        value,
+    )
 
     if not match:
-        raise ValueError("Resolução mínima inválida.")
+        raise ValueError(
+            "Resolução mínima inválida."
+        )
 
-    return int(match.group(1)), int(match.group(2))
+    return (
+        int(match.group(1)),
+        int(match.group(2)),
+    )
 
 
 def normalize_url(value):
@@ -76,7 +90,9 @@ def search(args, api):
     has_more = False
 
     for rating in ratings:
-        rating_tags = tags + [f"rating:{rating}"]
+        rating_tags = tags + [
+            f"rating:{rating}"
+        ]
 
         params = {
             "tags": " ".join(rating_tags),
@@ -84,17 +100,28 @@ def search(args, api):
             "page": args.page,
         }
 
-        payload = request_json(
-            api + "?" + urlencode(params)
-        )
-
-        if not isinstance(payload, list):
-            raise ValueError(
-                "Resposta inesperada do provedor."
+        def fetch(params=params):
+            payload = request_json(
+                api + "?" + urlencode(params)
             )
 
-        # A consulta de um item adicional permite
-        # detectar a existência de outra página.
+            if not isinstance(payload, list):
+                raise ValueError(
+                    "Resposta inesperada do provedor."
+                )
+
+            return payload
+
+        payload = search_cache.request(
+            provider=provider,
+            parameters={
+                "api": api,
+                **params,
+            },
+            callback=fetch,
+            use_cache=args.sorting != "random",
+        )
+
         if len(payload) > PAGE_SIZE:
             has_more = True
 
@@ -141,56 +168,32 @@ def search(args, api):
                     "q": "sketchy",
                     "e": "nsfw",
                 }.get(rating_code, "sfw"),
-                "score": int(
+                "_score": int(
                     entry.get("score") or 0
                 ),
             })
-
-    # Remove publicações duplicadas e arquivos
-    # originais repetidos na mesma página.
-    seen_ids = set()
-    seen_urls = set()
-    unique = []
-
-    for item in combined:
-        image_id = item["id"]
-        image_url = item["url"]
-
-        if image_id in seen_ids:
-            continue
-
-        if image_url in seen_urls:
-            continue
-
-        seen_ids.add(image_id)
-        seen_urls.add(image_url)
-
-        unique.append(item)
 
     if args.sorting in (
         "views",
         "favorites",
         "toplist",
     ):
-        unique.sort(
-            key=lambda item: item["score"],
+        combined.sort(
+            key=lambda item: item["_score"],
             reverse=True,
         )
 
     elif args.sorting == "date_added":
-        unique.sort(
+        combined.sort(
             key=lambda item: int(item["id"]),
             reverse=True,
         )
 
-    for item in unique:
-        item.pop("score", None)
+    for item in combined:
+        item.pop("_score", None)
 
-    return {
-        "items": unique,
-        "last_page": (
-            args.page + 1
-            if has_more
-            else args.page
-        ),
-    }
+    return pagination_result(
+        combined,
+        args.page,
+        has_more=has_more,
+    )

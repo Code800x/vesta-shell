@@ -1,15 +1,17 @@
 
-"""Provedor DesktopHut."""
+"""Provedor DesktopHut para wallpapers animados."""
 
+from urllib.error import HTTPError
 from urllib.parse import quote, urlparse
 
 from core import (
     fetch_page,
-    has_next_page,
     unique_items,
     validate_url,
     wallpaper_item,
 )
+
+from providers.search_service import SearchService
 
 
 class DesktopHut:
@@ -20,31 +22,51 @@ class DesktopHut:
     base = "https://www.desktophut.com"
     hosts = ("desktophut.com",)
 
+    def __init__(self):
+        self.search_service = SearchService(
+            provider=self.code,
+            fetch_page_callback=self.fetch_source_page,
+            page_size=12,
+            max_source_pages=40,
+            cache_ttl=1800,
+            filter_results=True,
+        )
+
     def listing_url(self, query, number):
+        term = str(query or "").strip()
+
         path = (
-            "/search/" + quote(query.strip(), safe="")
-            if query.strip()
+            "/search/" + quote(term, safe="")
+            if term
             else "/"
         )
 
         suffix = (
-            "?page=" + str(number)
+            f"?page={number}"
             if number > 1
             else ""
         )
 
         return self.base + path + suffix
 
-    def fetch(self, query, number):
-        document = fetch_page(
-            self.listing_url(query, number),
-            self.hosts,
-        )
+    def fetch_source_page(self, query, number):
+        try:
+            document = fetch_page(
+                self.listing_url(query, number),
+                self.hosts,
+            )
+        except HTTPError as error:
+            if error.code == 404:
+                return [], 0
+            raise
 
         items = []
+        source_urls = set()
 
         for link in document.links:
-            url = link["url"]
+            url = link.get("url", "")
+            title = link.get("title", "")
+            thumb = link.get("thumb", "")
 
             try:
                 validate_url(url, self.hosts)
@@ -52,8 +74,6 @@ class DesktopHut:
                 continue
 
             path = urlparse(url).path.strip("/")
-            title = link["title"]
-            thumb = link["thumb"]
 
             if not path or "/" in path or not thumb:
                 continue
@@ -64,28 +84,36 @@ class DesktopHut:
             ):
                 continue
 
+            if url in source_urls:
+                continue
+
+            source_urls.add(url)
+
             items.append(
                 wallpaper_item(
-                    self.code, url, title, thumb
+                    self.code,
+                    url,
+                    title,
+                    thumb,
                 )
             )
 
-        return unique_items(items)
+        return unique_items(items), len(source_urls)
+
+    def fetch(self, query, number):
+        """Compatibilidade com a API anterior."""
+        items, _ = self.fetch_source_page(
+            query,
+            number,
+        )
+
+        return items
 
     def search(self, query, number):
-        items = self.fetch(query, number)
-
-        return {
-            "items": items,
-            "page": number,
-            "last_page": (
-                number + 1
-                if has_next_page(
-                    self, query, number, items
-                )
-                else number
-            ),
-        }
+        return self.search_service.search(
+            query,
+            number,
+        )
 
     def resolve(self, url, item=None):
         validate_url(url, self.hosts)
@@ -106,7 +134,8 @@ class DesktopHut:
                 or "/files/" in path
             ):
                 return validate_url(
-                    source, self.hosts
+                    source,
+                    self.hosts,
                 )
 
         raise ValueError(
