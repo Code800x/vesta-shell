@@ -1,5 +1,5 @@
 
-"""Validated wallpaper download handling."""
+"""Validated wallpaper download and cache handling."""
 
 import json
 import os
@@ -13,10 +13,48 @@ from core.http import fetch
 DESTINATION = Path.home() / "Pictures" / "Wallpapers"
 MAX_BYTES = 50 * 1024 * 1024
 ALLOWED_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
+ID_PATTERN = re.compile(r"[a-zA-Z0-9]{1,24}")
 
 
 def emit(**data):
     print(json.dumps(data, ensure_ascii=False), flush=True)
+
+
+def validate_image_id(image_id):
+    if not ID_PATTERN.fullmatch(str(image_id)):
+        raise ValueError("Identificador de wallpaper inválido.")
+
+
+def cached_wallpaper(provider, image_id):
+    """Retorna o arquivo local, se existir e não estiver vazio."""
+    validate_image_id(image_id)
+
+    directory = DESTINATION / provider.capitalize()
+
+    for suffix in ALLOWED_EXTENSIONS:
+        target = directory / f"{provider}-{image_id}{suffix}"
+
+        if target.is_file() and target.stat().st_size > 0:
+            return str(target)
+
+    return None
+
+
+def cached_wallpapers(provider, image_ids):
+    """Consulta vários wallpapers sem acesso à rede."""
+    result = {}
+
+    for image_id in image_ids:
+        validate_image_id(image_id)
+
+        path = cached_wallpaper(provider, image_id)
+
+        result[image_id] = {
+            "cached": path is not None,
+            "path": path,
+        }
+
+    return result
 
 
 def allowed_download_host(provider, hostname):
@@ -65,9 +103,16 @@ def validate_image_url(provider, url):
 
 def download(args):
     suffix = validate_image_url(args.provider, args.url)
+    validate_image_id(args.image_id)
 
-    if not re.fullmatch(r"[a-zA-Z0-9]{1,24}", args.image_id):
-        raise ValueError("Identificador de wallpaper inválido.")
+    existing = cached_wallpaper(
+        args.provider,
+        args.image_id,
+    )
+
+    if existing is not None:
+        emit(ok=True, path=existing, cached=True)
+        return
 
     destination = DESTINATION / args.provider.capitalize()
     destination.mkdir(parents=True, exist_ok=True)
@@ -75,10 +120,6 @@ def download(args):
     target = destination / (
         f"{args.provider}-{args.image_id}{suffix}"
     )
-
-    if target.is_file() and target.stat().st_size > 0:
-        emit(ok=True, path=str(target))
-        return
 
     fd, temporary = tempfile.mkstemp(
         prefix=".vesta-",
@@ -129,4 +170,4 @@ def download(args):
         if os.path.exists(temporary):
             os.unlink(temporary)
 
-    emit(ok=True, path=str(target))
+    emit(ok=True, path=str(target), cached=False)

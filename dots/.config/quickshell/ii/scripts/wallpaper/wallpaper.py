@@ -8,7 +8,11 @@ import sys
 from urllib.error import HTTPError, URLError
 
 from core.registry import PROVIDERS, compatible, get
-from core.downloader import download
+from core.downloader import (
+    download,
+    cached_wallpaper,
+    cached_wallpapers,
+)
 
 PURITY_OPTIONS = ("100", "110", "111")
 
@@ -19,6 +23,7 @@ def emit(**data):
 
 def search(args):
     result = get(args.provider, args.purity).search(args)
+
     emit(
         ok=True,
         provider=args.provider,
@@ -26,6 +31,35 @@ def search(args):
         page=args.page,
         last_page=result["last_page"],
         purity=args.purity,
+    )
+
+
+def status(args):
+    path = cached_wallpaper(
+        args.provider,
+        args.image_id,
+    )
+
+    emit(
+        ok=True,
+        cached=path is not None,
+        path=path,
+    )
+
+
+def status_batch(args):
+    if len(args.image_ids) > 200:
+        raise ValueError(
+            "Limite de 200 wallpapers por consulta."
+        )
+
+    emit(
+        ok=True,
+        provider=args.provider,
+        items=cached_wallpapers(
+            args.provider,
+            args.image_ids,
+        ),
     )
 
 
@@ -87,19 +121,53 @@ def main():
     download_parser.add_argument("--url", required=True)
     download_parser.add_argument("--image-id", required=True)
 
+    status_parser = subparsers.add_parser("status")
+    status_parser.add_argument(
+        "--provider",
+        choices=PROVIDERS.keys(),
+        required=True,
+    )
+    status_parser.add_argument(
+        "--image-id",
+        required=True,
+    )
+
+    batch_parser = subparsers.add_parser("status-batch")
+    batch_parser.add_argument(
+        "--provider",
+        choices=PROVIDERS.keys(),
+        required=True,
+    )
+    batch_parser.add_argument(
+        "--image-ids",
+        nargs="+",
+        required=True,
+    )
+
     args = parser.parse_args()
 
     try:
         if args.action == "providers":
-            emit(ok=True, providers=compatible(args.purity))
+            emit(
+                ok=True,
+                providers=compatible(args.purity),
+            )
 
         elif args.action == "search":
             if args.page < 1:
-                raise ValueError("Número de página inválido.")
+                raise ValueError(
+                    "Número de página inválido."
+                )
 
             search(args)
 
-        else:
+        elif args.action == "status":
+            status(args)
+
+        elif args.action == "status-batch":
+            status_batch(args)
+
+        elif args.action == "download":
             download(args)
 
     except (

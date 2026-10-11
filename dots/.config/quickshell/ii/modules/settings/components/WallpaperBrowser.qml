@@ -38,10 +38,33 @@ ContentSection {
     property var selectedWallpaper: null
     property string selectedId: ""
 
+    property var cachedPaths: ({})
+    property bool cacheBatchPending: false
+    property bool checkingCache: false
+
+    readonly property string activeWallpaperPath:
+        Config.options.background.wallpaperPath || ""
+
+    readonly property string selectedCachedPath:
+        selectedId.length > 0
+            ? String(cachedPaths[selectedId] || "")
+            : ""
+
+    readonly property bool selectedIsActive:
+        selectedCachedPath.length > 0 &&
+        normalizedPath(selectedCachedPath) ===
+            normalizedPath(activeWallpaperPath)
+
     readonly property bool busy:
         providerProc.running ||
         searchProc.running ||
         downloadProc.running
+
+    readonly property bool canApply:
+        !busy &&
+        !checkingCache &&
+        selectedWallpaper !== null &&
+        !selectedIsActive
 
     readonly property var categories: [
         { name: "Todas", code: "111" },
@@ -71,6 +94,41 @@ ContentSection {
         { name: "Todos (NSFW)", code: "111" }
     ]
 
+    function normalizedPath(path) {
+        let value = String(path || "");
+
+        if (value.startsWith("file://"))
+            value = decodeURIComponent(value.substring(7));
+
+        return value.replace(/\/+$/, "");
+    }
+
+    function cachedPathFor(item) {
+        if (!item || !item.id)
+            return "";
+
+        return String(cachedPaths[item.id] || "");
+    }
+
+    function isItemActive(item) {
+        const path = cachedPathFor(item);
+
+        return path.length > 0 &&
+            normalizedPath(path) ===
+                normalizedPath(activeWallpaperPath);
+    }
+
+    function updateCachedPath(id, path) {
+        const updated = Object.assign({}, cachedPaths);
+
+        if (path && String(path).length > 0)
+            updated[id] = String(path);
+        else
+            delete updated[id];
+
+        cachedPaths = updated;
+    }
+
     function indexOfCode(items, code) {
         for (let i = 0; i < items.length; i++) {
             if (items[i].code === code)
@@ -81,131 +139,196 @@ ContentSection {
     }
 
     function providerIndex(code) {
-        return root.indexOfCode(root.availableProviders, code);
+        return indexOfCode(availableProviders, code);
     }
 
     function clearSelection() {
-        root.selectedWallpaper = null;
-        root.selectedId = "";
+        selectedWallpaper = null;
+        selectedId = "";
     }
 
     function selectWallpaper(item) {
-        if (root.busy || !item)
+        if (busy || !item)
             return;
 
-        if (root.selectedId === item.id) {
-            root.clearSelection();
+        if (selectedId === item.id) {
+            clearSelection();
             return;
         }
 
-        root.selectedWallpaper = item;
-        root.selectedId = item.id;
-        root.hasError = false;
-        root.feedback = "";
+        selectedWallpaper = item;
+        selectedId = item.id;
+
+        hasError = false;
+        feedback = "";
     }
 
     function refreshProviders() {
-        if (root.busy)
+        if (busy)
             return;
 
-        root.providersLoaded = false;
-        root.clearSelection();
-        root.results = [];
-        root.page = 1;
-        root.lastPage = 1;
+        providersLoaded = false;
+        clearSelection();
+        results = [];
+        cachedPaths = ({});
+        page = 1;
+        lastPage = 1;
 
-        root.hasError = false;
-        root.feedback = "Atualizando provedores...";
+        hasError = false;
+        feedback = "Atualizando provedores...";
 
         providerProc.command = [
             "python3",
-            root.scriptPath,
+            scriptPath,
             "providers",
             "--purity",
-            root.purity
+            purity
         ];
 
         providerProc.running = true;
     }
 
     function changePurity(code) {
-        if (root.busy || root.purity === code)
+        if (busy || purity === code)
             return;
 
-        root.purity = code;
-        root.category = "111";
+        purity = code;
+        category = "111";
 
-        root.refreshProviders();
+        refreshProviders();
     }
 
     function changeProvider(code) {
-        if (root.busy || root.provider === code)
+        if (
+            busy ||
+            provider === code ||
+            providerIndex(code) === -1
+        ) {
             return;
+        }
 
-        if (root.providerIndex(code) === -1)
-            return;
-
-        root.provider = code;
-        root.category = "111";
-
-        root.search(true);
+        provider = code;
+        category = "111";
+        search(true);
     }
 
     function search(resetPage) {
-        if (root.busy || !root.providersLoaded)
+        if (busy || !providersLoaded)
             return;
 
-        if (root.providerIndex(root.provider) === -1) {
-            root.hasError = true;
-            root.feedback = "Nenhum provedor disponível.";
+        if (providerIndex(provider) === -1) {
+            hasError = true;
+            feedback = "Nenhum provedor disponível.";
             return;
         }
 
         if (resetPage)
-            root.page = 1;
+            page = 1;
 
-        root.clearSelection();
-        root.hasError = false;
-        root.feedback = "Pesquisando wallpapers...";
+        clearSelection();
+        cachedPaths = ({});
+        checkingCache = false;
+
+        hasError = false;
+        feedback = "Pesquisando wallpapers...";
 
         searchProc.command = [
             "python3",
-            root.scriptPath,
+            scriptPath,
             "search",
             "--provider",
-            root.provider,
+            provider,
             "--query",
             searchField.text,
             "--categories",
-            root.category,
+            category,
             "--sorting",
-            root.sorting,
+            sorting,
             "--resolutions",
-            root.resolution,
+            resolution,
             "--purity",
-            root.purity,
+            purity,
             "--page",
-            String(root.page)
+            String(page)
         ];
 
         searchProc.running = true;
     }
 
+    function refreshCacheBatch() {
+        if (batchProc.running) {
+            cacheBatchPending = true;
+            return;
+        }
+
+        cacheBatchPending = false;
+
+        if (results.length === 0) {
+            cachedPaths = ({});
+            checkingCache = false;
+            return;
+        }
+
+        const ids = [];
+        const seen = {};
+
+        for (let i = 0; i < results.length; i++) {
+            const id = String(results[i].id || "");
+
+            if (!id || seen[id])
+                continue;
+
+            seen[id] = true;
+            ids.push(id);
+        }
+
+        if (ids.length === 0) {
+            cachedPaths = ({});
+            checkingCache = false;
+            return;
+        }
+
+        checkingCache = true;
+
+        batchProc.requestedProvider = provider;
+        batchProc.requestedIds = ids.join(",");
+
+        batchProc.command = [
+            "python3",
+            scriptPath,
+            "status-batch",
+            "--provider",
+            provider,
+            "--image-ids"
+        ].concat(ids);
+
+        batchProc.running = true;
+    }
+
     function applySelected() {
-        if (root.busy || !root.selectedWallpaper)
+        if (!canApply)
             return;
 
-        const item = root.selectedWallpaper;
+        if (selectedCachedPath.length > 0) {
+            Wallpapers.apply(selectedCachedPath);
+            feedback = "Wallpaper local enviado para aplicação.";
+            hasError = false;
+            return;
+        }
+
+        const item = selectedWallpaper;
 
         if (!item.url || !item.id || !item.provider)
             return;
 
-        root.hasError = false;
-        root.feedback = "Baixando wallpaper selecionado...";
+        hasError = false;
+        feedback = "Baixando wallpaper selecionado...";
+
+        downloadProc.requestedId = item.id;
 
         downloadProc.command = [
             "python3",
-            root.scriptPath,
+            scriptPath,
             "download",
             "--provider",
             item.provider,
@@ -238,7 +361,8 @@ ContentSection {
 
                 if (exitCode !== 0 || data.ok !== true) {
                     throw new Error(
-                        data.error || "Falha ao consultar provedores"
+                        data.error ||
+                        "Falha ao consultar provedores."
                     );
                 }
 
@@ -249,11 +373,10 @@ ContentSection {
                 }
 
                 const validProviders = data.providers.filter(
-                    function(item) {
-                        return item &&
-                            typeof item.code === "string" &&
-                            typeof item.name === "string";
-                    }
+                    item =>
+                        item &&
+                        typeof item.code === "string" &&
+                        typeof item.name === "string"
                 );
 
                 root.availableProviders = validProviders;
@@ -266,24 +389,24 @@ ContentSection {
                     return;
                 }
 
-                // Preserve the selected provider whenever possible.
-                if (root.providerIndex(root.provider) === -1) {
+                if (root.providerIndex(root.provider) === -1)
                     root.provider = validProviders[0].code;
-                }
 
                 root.hasError = false;
                 root.feedback = "";
 
-                // Run after providerProc has stopped.
                 initialSearchTimer.restart();
 
             } catch (error) {
                 root.availableProviders = [];
                 root.providersLoaded = false;
                 root.results = [];
+                root.cachedPaths = ({});
                 root.hasError = true;
+
                 root.feedback =
-                    "Erro ao carregar provedores: " + error.message;
+                    "Erro ao carregar provedores: " +
+                    error.message;
 
                 const details = providerErrors.text.trim();
 
@@ -299,10 +422,8 @@ ContentSection {
 
     Timer {
         id: initialSearchTimer
-
         interval: 0
         repeat: false
-
         onTriggered: root.search(true)
     }
 
@@ -326,7 +447,7 @@ ContentSection {
 
                 if (exitCode !== 0 || data.ok !== true) {
                     throw new Error(
-                        data.error || "Falha na pesquisa"
+                        data.error || "Falha na pesquisa."
                     );
                 }
 
@@ -343,10 +464,14 @@ ContentSection {
                     : "Nenhum wallpaper encontrado.";
 
                 grid.positionViewAtBeginning();
+                root.refreshCacheBatch();
 
             } catch (error) {
                 root.results = [];
+                root.cachedPaths = ({});
+                root.checkingCache = false;
                 root.hasError = true;
+
                 root.feedback =
                     "Erro na pesquisa: " + error.message;
 
@@ -363,8 +488,77 @@ ContentSection {
     }
 
     Process {
+        id: batchProc
+        running: false
+
+        property string requestedProvider: ""
+        property string requestedIds: ""
+
+        stdout: StdioCollector {
+            id: batchOutput
+        }
+
+        stderr: StdioCollector {
+            id: batchErrors
+        }
+
+        onExited: (exitCode, exitStatus) => {
+            const currentIds = root.results
+                .map(item => String(item.id || ""))
+                .filter(id => id.length > 0)
+                .filter((id, index, array) =>
+                    array.indexOf(id) === index)
+                .join(",");
+
+            if (
+                root.cacheBatchPending ||
+                requestedProvider !== root.provider ||
+                requestedIds !== currentIds
+            ) {
+                root.refreshCacheBatch();
+                return;
+            }
+
+            try {
+                const data = JSON.parse(
+                    batchOutput.text.trim()
+                );
+
+                if (exitCode !== 0 || data.ok !== true) {
+                    throw new Error(
+                        data.error ||
+                        "Falha na consulta de cache."
+                    );
+                }
+
+                const paths = {};
+                const items = data.items || {};
+
+                for (const id of Object.keys(items)) {
+                    if (items[id].cached && items[id].path)
+                        paths[id] = String(items[id].path);
+                }
+
+                root.cachedPaths = paths;
+                root.checkingCache = false;
+
+            } catch (error) {
+                root.checkingCache = false;
+
+                console.warn(
+                    "[WallpaperBrowser] Cache:",
+                    error.message,
+                    batchErrors.text
+                );
+            }
+        }
+    }
+
+    Process {
         id: downloadProc
         running: false
+
+        property string requestedId: ""
 
         stdout: StdioCollector {
             id: downloadOutput
@@ -386,15 +580,21 @@ ContentSection {
                     !data.path
                 ) {
                     throw new Error(
-                        data.error || "Falha no download"
+                        data.error || "Falha no download."
                     );
                 }
+
+                root.updateCachedPath(
+                    requestedId,
+                    String(data.path)
+                );
 
                 Wallpapers.apply(data.path);
 
                 root.hasError = false;
-                root.feedback =
-                    "Wallpaper baixado e enviado para aplicação.";
+                root.feedback = data.cached === true
+                    ? "Wallpaper do cache enviado para aplicação."
+                    : "Wallpaper baixado e enviado para aplicação.";
 
             } catch (error) {
                 root.hasError = true;
@@ -417,7 +617,6 @@ ContentSection {
         Layout.fillWidth: true
         spacing: 12
 
-        // Provider and search
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
@@ -426,6 +625,7 @@ ContentSection {
                 id: providerSelector
 
                 Layout.preferredWidth: 160
+
                 enabled:
                     !root.busy &&
                     root.providersLoaded &&
@@ -464,6 +664,7 @@ ContentSection {
 
             RippleButtonWithIcon {
                 Layout.preferredHeight: 48
+
                 enabled:
                     !root.busy &&
                     root.providersLoaded
@@ -476,7 +677,6 @@ ContentSection {
             }
         }
 
-        // Category, sorting and resolution
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
@@ -485,6 +685,7 @@ ContentSection {
                 id: categorySelector
 
                 Layout.fillWidth: true
+
                 enabled:
                     !root.busy &&
                     root.provider === "wallhaven"
@@ -553,7 +754,6 @@ ContentSection {
             }
         }
 
-        // Content classification
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
@@ -613,7 +813,6 @@ ContentSection {
             font.pixelSize: Appearance.font.pixelSize.smaller
         }
 
-        // Operation feedback
         RowLayout {
             Layout.fillWidth: true
             spacing: 6
@@ -648,7 +847,6 @@ ContentSection {
             }
         }
 
-        // Wallpaper gallery
         GridView {
             id: grid
 
@@ -676,6 +874,12 @@ ContentSection {
                 readonly property bool isSelected:
                     root.selectedId !== "" &&
                     root.selectedId === modelData.id
+
+                readonly property string localPath:
+                    root.cachedPathFor(modelData)
+
+                readonly property bool isActive:
+                    root.isItemActive(modelData)
 
                 width: grid.cellWidth
                 height: grid.cellHeight
@@ -719,7 +923,6 @@ ContentSection {
 
                     Rectangle {
                         anchors.fill: parent
-
                         color: Appearance.colors.colPrimary
 
                         opacity: wallpaperDelegate.isSelected
@@ -737,7 +940,6 @@ ContentSection {
 
                     Rectangle {
                         anchors.fill: parent
-
                         radius: card.radius
                         color: "transparent"
 
@@ -746,6 +948,55 @@ ContentSection {
 
                         border.color:
                             Appearance.colors.colPrimary
+                    }
+
+                    // Indicador do cache em todos os cards.
+                    Rectangle {
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.margins: 6
+
+                        visible:
+                            wallpaperDelegate.localPath.length > 0
+
+                        width: cacheBadgeRow.implicitWidth + 14
+                        height: 25
+                        radius: Appearance.rounding.small
+
+                        color: wallpaperDelegate.isActive
+                            ? Appearance.colors.colPrimary
+                            : Appearance.colors.colPrimaryContainer
+
+                        Row {
+                            id: cacheBadgeRow
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            MaterialSymbol {
+                                text: wallpaperDelegate.isActive
+                                    ? "check_circle"
+                                    : "download_done"
+
+                                iconSize: 14
+
+                                color: wallpaperDelegate.isActive
+                                    ? Appearance.colors.colOnPrimary
+                                    : Appearance.colors.colOnPrimaryContainer
+                            }
+
+                            StyledText {
+                                text: wallpaperDelegate.isActive
+                                    ? "Em uso"
+                                    : "Já baixado"
+
+                                color: wallpaperDelegate.isActive
+                                    ? Appearance.colors.colOnPrimary
+                                    : Appearance.colors.colOnPrimaryContainer
+
+                                font.pixelSize:
+                                    Appearance.font.pixelSize.smaller
+                            }
+                        }
                     }
 
                     Rectangle {
@@ -799,17 +1050,14 @@ ContentSection {
                     TapHandler {
                         enabled: !root.busy
 
-                        onTapped: {
-                            root.selectWallpaper(
-                                wallpaperDelegate.modelData
-                            );
-                        }
+                        onTapped: root.selectWallpaper(
+                            wallpaperDelegate.modelData
+                        )
                     }
                 }
             }
         }
 
-        // Pagination and application
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
@@ -858,17 +1106,25 @@ ContentSection {
             }
 
             RippleButtonWithIcon {
-                enabled:
-                    !root.busy &&
-                    root.selectedWallpaper !== null
+                enabled: root.canApply
 
                 materialIcon: downloadProc.running
                     ? "progress_activity"
-                    : "wallpaper"
+                    : root.selectedIsActive
+                        ? "check_circle"
+                        : root.selectedCachedPath.length > 0
+                            ? "wallpaper"
+                            : "download"
 
                 mainText: downloadProc.running
-                    ? "Aplicando..."
-                    : "Aplicar"
+                    ? "Baixando..."
+                    : root.checkingCache
+                        ? "Verificando..."
+                        : root.selectedIsActive
+                            ? "Em uso"
+                            : root.selectedCachedPath.length > 0
+                                ? "Aplicar"
+                                : "Baixar e aplicar"
 
                 buttonRadius: Appearance.rounding.small
 
