@@ -1,4 +1,3 @@
-import "."
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -7,6 +6,7 @@ import qs.modules.common
 import qs.modules.common.widgets
 import qs.services
 import "WallpaperUtils.js" as WallpaperUtils
+import "WallpaperPagination.js" as WallpaperPagination
 ContentSection {
     id: root
     title: Translation.tr("Explore wallpapers online")
@@ -129,25 +129,7 @@ ContentSection {
     }
     // Páginas visíveis: primeira, vizinhas e última, com reticências.
     function visiblePageNumbers() {
-        const maxPage = Math.max(page, lastPage);
-        const selected = {};
-        selected[1] = true;
-        for (let number = Math.max(1, page - 1);
-             number <= Math.min(maxPage, page + 1);
-             number++) {
-            selected[number] = true;
-        }
-        selected[maxPage] = true;
-        const numbers = Object.keys(selected)
-            .map(value => Number(value))
-            .sort((a, b) => a - b);
-        const display = [];
-        for (let i = 0; i < numbers.length; i++) {
-            if (i > 0 && numbers[i] - numbers[i - 1] > 1)
-                display.push(-1);
-            display.push(numbers[i]);
-        }
-        return display;
+        return WallpaperPagination.visiblePages(page, lastPage, true);
     }
     function changePage(targetPage) {
         if (busy || !providersLoaded ||
@@ -668,30 +650,17 @@ ContentSection {
                 placeholderText: "Pesquisar wallpapers..."
                 onAccepted: root.search(true)
             }
-Loader {
-    Layout.preferredHeight: 48
-    Layout.preferredWidth: item ? item.implicitWidth : 0
-
-    source: "WallpaperSearchActions.qml"
-
-    onLoaded: {
-        item.canSearch = Qt.binding(
-            () => !root.busy && root.providersLoaded
-        );
-
-        item.hasQuery = Qt.binding(
-            () => searchField.text.length > 0
-        );
-
-        item.searchRequested.connect(
-            () => root.search(true)
-        );
-
-        item.clearRequested.connect(
-            () => root.clearSearch()
-        );
-    }
-}
+            Loader {
+                Layout.preferredHeight: 48
+                Layout.preferredWidth: item ? item.implicitWidth : 0
+                source: "WallpaperSearchActions.qml"
+                onLoaded: {
+                    item.canSearch = Qt.binding(() => !root.busy && root.providersLoaded);
+                    item.hasQuery = Qt.binding(() => searchField.text.length > 0);
+                    item.searchRequested.connect(() => root.search(true));
+                    item.clearRequested.connect(() => root.clearSearch());
+                }
+            }
         }
         RowLayout {
             Layout.fillWidth: true
