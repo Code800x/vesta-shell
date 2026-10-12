@@ -762,144 +762,25 @@ ContentSection {
             cellHeight: 130
             model: root.results
             boundsBehavior: Flickable.StopAtBounds
-            delegate: Item {
-                id: wallpaperDelegate
+            delegate: Loader {
+                id: cardLoader
                 required property var modelData
-                readonly property bool isSelected:
-                    root.selectedWallpaper !== null &&
-                    root.selectedWallpaper.id === modelData.id
-                readonly property string localPath:
-                    root.cachedPathFor(modelData)
-                readonly property bool isActive:
-                    root.isItemActive(modelData)
                 width: grid.cellWidth
                 height: grid.cellHeight
-                Rectangle {
-                    id: card
-                    anchors.fill: parent
-                    anchors.margins: 4
-                    radius: Appearance.rounding.small
-                    color: Appearance.colors.colLayer2
-                    clip: true
-                    Image {
-                        id: thumbnail
-                        anchors.fill: parent
-                        source:
-                            wallpaperDelegate.modelData.thumb || ""
-                        fillMode: Image.PreserveAspectCrop
-                        asynchronous: true
-                        cache: true
-                        sourceSize.width: 340
-                        sourceSize.height: 240
-                    }
-                    MaterialSymbol {
-                        anchors.centerIn: parent
-                        visible:
-                            thumbnail.status !== Image.Ready
-                        text: "movie"
-                        iconSize: 28
-                        color: Appearance.colors.colOnSurface
-                    }
-                    Rectangle {
-                        anchors.fill: parent
-                        color: Appearance.colors.colPrimary
-                        opacity:
-                            wallpaperDelegate.isSelected
-                                ? 0.18
-                                : hoverHandler.hovered
-                                    ? 0.12
-                                    : 0
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: 140
-                            }
-                        }
-                    }
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: card.radius
-                        color: "transparent"
-                        border.width:
-                            wallpaperDelegate.isSelected ? 3 : 0
-                        border.color:
-                            Appearance.colors.colPrimary
-                    }
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        height: 34
-                        color: "#AA000000"
-                        StyledText {
-                            anchors.fill: parent
-                            anchors.margins: 7
-                            text:
-                                wallpaperDelegate.modelData.title || ""
-                            color: "white"
-                            elide: Text.ElideRight
-                            verticalAlignment: Text.AlignVCenter
-                            font.pixelSize:
-                                Appearance.font.pixelSize.smaller
-                        }
-                    }
-                    Rectangle {
-                        anchors.top: parent.top
-                        anchors.right: parent.right
-                        anchors.margins: 7
-                        visible:
-                            wallpaperDelegate.localPath.length > 0
-                        width: cachedLabel.implicitWidth + 16
-                        height: 25
-                        radius: Appearance.rounding.small
-                        color:
-                            wallpaperDelegate.isActive
-                                ? Appearance.colors.colPrimary
-                                : Appearance.colors.colPrimaryContainer
-                        Row {
-                            anchors.centerIn: parent
-                            spacing: 4
-                            MaterialSymbol {
-                                text: wallpaperDelegate.isActive
-                                    ? "check_circle"
-                                    : "download_done"
-                                iconSize: 14
-                                color: wallpaperDelegate.isActive
-                                    ? Appearance.colors.colOnPrimary
-                                    : Appearance.colors.colOnPrimaryContainer
-                            }
-                            StyledText {
-                                id: cachedLabel
-                                text: wallpaperDelegate.isActive
-                                    ? "Em uso"
-                                    : "Já baixado"
-                                color: wallpaperDelegate.isActive
-                                    ? Appearance.colors.colOnPrimary
-                                    : Appearance.colors.colOnPrimaryContainer
-                                font.pixelSize:
-                                    Appearance.font.pixelSize.smaller
-                            }
-                        }
-                    }
-                    MaterialSymbol {
-                        anchors.top: parent.top
-                        anchors.left: parent.left
-                        anchors.margins: 8
-                        visible: wallpaperDelegate.isSelected
-                        text: "check_circle"
-                        iconSize: 25
-                        color: Appearance.colors.colPrimary
-                    }
-                    HoverHandler {
-                        id: hoverHandler
-                        enabled: !root.busy
-                        cursorShape: Qt.PointingHandCursor
-                    }
-                    TapHandler {
-                        enabled: !root.busy
-                        onTapped: root.selectWallpaper(
-                            wallpaperDelegate.modelData
-                        )
-                    }
+
+                // Carregamento local explícito, compatível com o scanner QML.
+                Component.onCompleted: setSource("WallpaperCard.qml", {
+                    "wallpaper": modelData,
+                    "live": true
+                })
+
+                onLoaded: {
+                    item.wallpaper = Qt.binding(() => cardLoader.modelData);
+                    item.selected = Qt.binding(() => root.selectedWallpaper !== null && root.selectedWallpaper.id === cardLoader.modelData.id);
+                    item.cached = Qt.binding(() => root.cachedPathFor(cardLoader.modelData).length > 0);
+                    item.active = Qt.binding(() => root.isItemActive(cardLoader.modelData));
+                    item.busy = Qt.binding(() => root.busy);
+                    item.activated.connect(() => root.selectWallpaper(cardLoader.modelData));
                 }
             }
         }
