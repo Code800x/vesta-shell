@@ -5,13 +5,13 @@ import Quickshell.Io
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.services
-import "WallpaperUtils.js" as WallpaperUtils
-import "WallpaperPagination.js" as WallpaperPagination
-import "WallpaperCommands.js" as WallpaperCommands
-import "WallpaperResponses.js" as WallpaperResponses
-import "WallpaperDownloadEvents.js" as WallpaperDownloadEvents
-import "WallpaperDownloadState.js" as WallpaperDownloadState
-import "WallpaperDownloadLifecycle.js" as WallpaperDownloadLifecycle
+import "../utils/WallpaperUtils.js" as WallpaperUtils
+import "../utils/WallpaperPagination.js" as WallpaperPagination
+import "../utils/WallpaperCommands.js" as WallpaperCommands
+import "../utils/WallpaperResponses.js" as WallpaperResponses
+import "../utils/WallpaperDownloadEvents.js" as WallpaperDownloadEvents
+import "../utils/WallpaperDownloadState.js" as WallpaperDownloadState
+import "../utils/WallpaperDownloadLifecycle.js" as WallpaperDownloadLifecycle
 ContentSection {
     id: root
     title: Translation.tr("Explore wallpapers online")
@@ -360,7 +360,7 @@ ContentSection {
     Loader {
         id: providerControllerLoader
         active: true
-        source: "WallpaperProviderController.qml"
+        source: "../controllers/WallpaperProviderController.qml"
         onLoaded: {
             item.completed.connect(root.handleProvidersCompleted);
             item.failed.connect(root.handleProvidersFailed);
@@ -399,7 +399,7 @@ ContentSection {
     Loader {
         id: searchControllerLoader
         active: true
-        source: "WallpaperSearchController.qml"
+        source: "../controllers/WallpaperSearchController.qml"
         onLoaded: {
             item.completed.connect(root.handleSearchCompleted);
             item.failed.connect(root.handleSearchFailed);
@@ -429,7 +429,7 @@ ContentSection {
     Loader {
         id: cacheLoader
         active: true
-        source: "WallpaperCacheController.qml"
+        source: "../controllers/WallpaperCacheController.qml"
         onLoaded: {
             item.completed.connect(root.cacheCompleted);
             item.failed.connect(root.cacheFailed);
@@ -465,7 +465,7 @@ ContentSection {
     Loader {
         id: downloadController
         active: true
-        source: "WallpaperDownloadController.qml"
+        source: "../controllers/WallpaperDownloadController.qml"
         onLoaded: {
             item.lineReceived.connect(root.handleDownloadLine);
             item.finished.connect(root.handleDownloadExited);
@@ -545,7 +545,7 @@ ContentSection {
             Loader {
                 Layout.preferredHeight: 48
                 Layout.preferredWidth: item ? item.implicitWidth : 0
-                source: "WallpaperSearchActions.qml"
+                source: "../components/WallpaperSearchActions.qml"
                 onLoaded: {
                     item.canSearch = Qt.binding(() => !root.busy && root.providersLoaded);
                     item.hasQuery = Qt.binding(() => searchField.text.length > 0);
@@ -713,7 +713,7 @@ ContentSection {
                 height: grid.cellHeight
 
                 // Carregamento local explícito, compatível com o scanner QML.
-                Component.onCompleted: setSource("WallpaperCard.qml", {
+                Component.onCompleted: setSource("../components/WallpaperCard.qml", {
                     "wallpaper": modelData,
                     "live": false
                 })

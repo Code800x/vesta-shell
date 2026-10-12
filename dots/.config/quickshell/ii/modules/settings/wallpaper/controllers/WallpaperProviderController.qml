@@ -1,6 +1,6 @@
 import QtQuick
 import Quickshell.Io
-import "WallpaperResponses.js" as WallpaperResponses
+import "../utils/WallpaperResponses.js" as WallpaperResponses
 
 Item {
     id: controller

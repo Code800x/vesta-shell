@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import qs.modules.common
 import qs.modules.common.widgets
 
-import "./components" as SettingsComponents
+import "./wallpaper/views" as WallpaperViews
 
 ContentPage {
     id: root
@@ -138,19 +138,19 @@ ContentPage {
 
     // Aba 1: wallpapers estáticos
     // O componente permanece instanciado ao trocar de aba.
-    SettingsComponents.WallpaperBrowser {
+    WallpaperViews.WallpaperBrowser {
         Layout.fillWidth: true
         visible: root.activeTab === 0
     }
 
     // Aba 2: wallpapers animados
     // Os dois navegadores compartilham a mesma aba.
-    SettingsComponents.LiveWallpaperOnlineBrowser {
+    WallpaperViews.LiveWallpaperOnlineBrowser {
         Layout.fillWidth: true
         visible: root.activeTab === 1
     }
 
-    SettingsComponents.LiveWallpaperBrowser {
+    WallpaperViews.LiveWallpaperBrowser {
         Layout.fillWidth: true
         visible: root.activeTab === 1
     }
