@@ -14,6 +14,7 @@ ContentPage {
 
     // 0 = Wallpapers normais
     // 1 = Live Wallpapers
+    // 2 = Meus Wallpapers
     property int activeTab: 0
 
     ContentSection {
@@ -51,6 +52,10 @@ ContentPage {
                     {
                         title: "Live Wallpapers",
                         icon: "animated_images"
+                    },
+                    {
+                        title: "Meus Wallpapers",
+                        icon: "folder_open"
                     }
                 ]
 
@@ -143,15 +148,15 @@ ContentPage {
         visible: root.activeTab === 0
     }
 
-    // Aba 2: wallpapers animados
-    // Os dois navegadores compartilham a mesma aba.
+    // Aba 2: explorar wallpapers animados online.
     WallpaperViews.LiveWallpaperOnlineBrowser {
         Layout.fillWidth: true
         visible: root.activeTab === 1
     }
 
-    WallpaperViews.LiveWallpaperBrowser {
+    // Aba 3: biblioteca local e importação manual de vídeos.
+    WallpaperViews.LocalWallpaperLibrary {
         Layout.fillWidth: true
-        visible: root.activeTab === 1
+        visible: root.activeTab === 2
     }
 }
