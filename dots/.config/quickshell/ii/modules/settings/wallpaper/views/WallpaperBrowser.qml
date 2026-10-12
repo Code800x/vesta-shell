@@ -615,40 +615,84 @@ ContentSection {
                 }
             }
         }
-        RowLayout {
+        ColumnLayout {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
             spacing: 8
-            MaterialSymbol {
-                text: "visibility"
-                iconSize: 20
-                color: Appearance.colors.colOnSurface
-            }
-            StyledText {
-                text: "Conteúdo"
-                color: Appearance.colors.colOnSurface
-                font.pixelSize: Appearance.font.pixelSize.small
-            }
-            StyledComboBox {
-                id: puritySelector
-                Layout.preferredWidth: 210
-                Layout.minimumWidth: 150
-                enabled: !root.busy
-                buttonIcon: "filter_alt"
-                textRole: "name"
-                model: root.purityOptions
-                currentIndex: root.indexOfCode(
-                    root.purityOptions,
-                    root.purity
-                )
-                onActivated: index => {
-                    root.changePurity(
-                        root.purityOptions[index].code
-                    );
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                MaterialSymbol {
+                    text: "visibility"
+                    iconSize: 20
+                    color: Appearance.colors.colOnSurface
+                }
+                StyledText {
+                    text: "Conteúdo"
+                    color: Appearance.colors.colOnSurface
+                    font.pixelSize: Appearance.font.pixelSize.small
                 }
             }
-            Item {
+
+            RowLayout {
                 Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                spacing: 16
+                    Repeater {
+                model: root.purityOptions
+                delegate: RowLayout {
+                    id: purityOption
+                    required property var modelData
+                    spacing: 6
+                    readonly property bool selected: root.purity === modelData.code
+                    readonly property bool available: !root.busy
+                    opacity: available ? 1 : 0.5
+
+                    StyledText {
+                        text: purityOption.modelData.name
+                        color: Appearance.colors.colOnSurface
+                        font.pixelSize: Appearance.font.pixelSize.small
+                    }
+
+                    Rectangle {
+                        id: purityTrack
+                        Layout.preferredWidth: 38
+                        Layout.preferredHeight: 22
+                        radius: height / 2
+                        color: purityOption.selected
+                            ? Appearance.colors.colPrimary
+                            : Appearance.colors.colLayer2
+                        border.width: purityOption.selected ? 0 : 1
+                        border.color: Appearance.colors.colOnSurfaceVariant
+
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
+                        Rectangle {
+                            width: 16
+                            height: 16
+                            radius: 8
+                            y: 3
+                            x: purityOption.selected ? purityTrack.width - width - 3 : 3
+                            color: purityOption.selected
+                                ? Appearance.colors.colOnPrimary
+                                : Appearance.colors.colOnSurfaceVariant
+                            Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                        }
+
+                        HoverHandler {
+                            id: purityHover
+                            enabled: purityOption.available
+                            cursorShape: Qt.PointingHandCursor
+                        }
+                        TapHandler {
+                            enabled: purityOption.available
+                            onTapped: root.changePurity(purityOption.modelData.code)
+                        }
+                    }
+                }
+            }
+                Item { Layout.fillWidth: true }
             }
         }
         StyledText {

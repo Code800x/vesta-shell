@@ -206,7 +206,6 @@ ContentSection {
         if (root.busy || !root.providersLoaded ||
             searchField.text.length === 0)
             return;
-
         searchField.text = "";
         root.search(true);
     }
@@ -422,7 +421,6 @@ ContentSection {
             item.failed.connect(root.cacheFailed);
         }
     }
-
     function cacheIsStale(requestedProvider, requestedIds) {
         const ids = results.map(item => String(item.id || ""))
             .filter(id => id.length > 0)
@@ -430,7 +428,6 @@ ContentSection {
         return cacheBatchPending ||
             requestedProvider !== provider || requestedIds !== ids;
     }
-
     function cacheCompleted(paths, requestedProvider, requestedIds) {
         if (cacheIsStale(requestedProvider, requestedIds)) {
             refreshCacheBatch();
@@ -441,7 +438,6 @@ ContentSection {
             cachedPath = cachedPathFor(selectedWallpaper);
         checkingCache = false;
     }
-
     function cacheFailed(message, details, requestedProvider, requestedIds) {
         if (cacheIsStale(requestedProvider, requestedIds)) {
             refreshCacheBatch();
@@ -450,7 +446,6 @@ ContentSection {
         checkingCache = false;
         console.warn("[WallpaperCache]", message, details);
     }
-
     Process {
         id: statusProc
         running: false
@@ -721,13 +716,11 @@ ContentSection {
                 required property var modelData
                 width: grid.cellWidth
                 height: grid.cellHeight
-
                 // Carregamento local explícito, compatível com o scanner QML.
                 Component.onCompleted: setSource("../components/WallpaperCard.qml", {
                     "wallpaper": modelData,
                     "live": true
                 })
-
                 onLoaded: {
                     item.wallpaper = Qt.binding(() => cardLoader.modelData);
                     item.selected = Qt.binding(() => root.selectedWallpaper !== null && root.selectedWallpaper.id === cardLoader.modelData.id);
@@ -928,19 +921,6 @@ ContentSection {
                 onClicked: root.applySelected()
             }
             }
-        }
-        StyledText {
-            Layout.fillWidth: true
-            visible:
-                root.selectedWallpaper !== null &&
-                !root.downloading
-            text: root.selectedWallpaper
-                ? "Selecionado: " +
-                    root.selectedWallpaper.title
-                : ""
-            wrapMode: Text.WordWrap
-            color: Appearance.colors.colOnSurfaceVariant
-            font.pixelSize: Appearance.font.pixelSize.small
         }
     }
     Component.onCompleted: root.refreshProviders()

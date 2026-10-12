@@ -209,47 +209,33 @@ ContentSection {
                     columns: 3
                     columnSpacing: 10
                     rowSpacing: 10
+
                     Repeater {
                         model: root.images
-                        delegate: Rectangle {
+                        delegate: Loader {
                             id: imageCard
                             required property int index
                             required property var modelData
                             Layout.preferredWidth: Math.max(0, (imagesGrid.width - 2 * imagesGrid.columnSpacing) / 3)
                             Layout.preferredHeight: 128
-                            radius: Appearance.rounding.small
-                            clip: true
-                            color: Appearance.colors.colLayer2
-                            border.width: root.selectedPath === modelData.path ? 2 : 0
-                            border.color: Appearance.colors.colPrimary
-                            Image {
-                                anchors.fill: parent
-                                source: (Math.floor(index / 3) * 138 < imagesScroll.contentY + imagesScroll.height + 276
-                                    && Math.floor(index / 3) * 138 + 128 > imagesScroll.contentY - 276
-                                    && root.currentPage === 0 && imageCard.modelData.thumbnail)
-                                    ? "file://" + encodeURI(imageCard.modelData.thumbnail) : ""
-                                fillMode: Image.PreserveAspectCrop
-                                asynchronous: true
-                                sourceSize.width: 320
-                                sourceSize.height: 180
+                            Component.onCompleted: setSource("../components/WallpaperCard.qml", {
+                                "wallpaper": { "thumb": "", "title": modelData.name || "" },
+                                "local": true
+                            })
+                            onLoaded: {
+                                item.wallpaper = Qt.binding(() => ({
+                                    thumb: (Math.floor(imageCard.index / 3) * 138 < imagesScroll.contentY + imagesScroll.height + 276
+                                        && Math.floor(imageCard.index / 3) * 138 + 128 > imagesScroll.contentY - 276
+                                        && root.currentPage === 0 && imageCard.modelData.thumbnail)
+                                        ? "file://" + encodeURI(imageCard.modelData.thumbnail) : "",
+                                    title: imageCard.modelData.name || ""
+                                }));
+                                item.local = true;
+                                item.live = false;
+                                item.localVideo = false;
+                                item.selected = Qt.binding(() => root.selectedPath === imageCard.modelData.path);
+                                item.activated.connect(() => root.applyPath(imageCard.modelData.path));
                             }
-                            Rectangle {
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.bottom: parent.bottom
-                                height: 34
-                                color: "#B8000000"
-                                StyledText {
-                                    anchors.fill: parent
-                                    anchors.margins: 8
-                                    text: imageCard.modelData.name
-                                    elide: Text.ElideRight
-                                    color: "white"
-                                    font.pixelSize: Appearance.font.pixelSize.small
-                                }
-                            }
-                            TapHandler { onTapped: root.applyPath(imageCard.modelData.path) }
-                            HoverHandler { cursorShape: Qt.PointingHandCursor }
                         }
                     }
                 }
@@ -302,72 +288,33 @@ ContentSection {
                     columns: 3
                     columnSpacing: 10
                     rowSpacing: 10
+
                     Repeater {
                         model: root.videos
-                        delegate: Rectangle {
+                        delegate: Loader {
                             id: videoCard
                             required property int index
                             required property var modelData
                             Layout.preferredWidth: Math.max(0, (videosGrid.width - 2 * videosGrid.columnSpacing) / 3)
                             Layout.preferredHeight: 110
-                            radius: Appearance.rounding.small
-                            color: Appearance.colors.colLayer2
-                            border.width: root.selectedPath === modelData.path ? 2 : 0
-                            border.color: Appearance.colors.colPrimary
-                            clip: true
-                            Image {
-                                anchors.fill: parent
-                                source: (Math.floor(videoCard.index / 3) * 120 < videosScroll.contentY + videosScroll.height + 240
-                                    && Math.floor(videoCard.index / 3) * 120 + 110 > videosScroll.contentY - 240
-                                    && root.currentPage === 1 && videoCard.modelData.thumbnail)
-                                    ? "file://" + encodeURI(videoCard.modelData.thumbnail) : ""
-                                fillMode: Image.PreserveAspectCrop
-                                asynchronous: true
-                                sourceSize.width: 360
-                                sourceSize.height: 210
+                            Component.onCompleted: setSource("../components/WallpaperCard.qml", {
+                                "wallpaper": { "thumb": "", "title": modelData.name || "" },
+                                "local": true
+                            })
+                            onLoaded: {
+                                item.wallpaper = Qt.binding(() => ({
+                                    thumb: (Math.floor(videoCard.index / 3) * 120 < videosScroll.contentY + videosScroll.height + 240
+                                        && Math.floor(videoCard.index / 3) * 120 + 110 > videosScroll.contentY - 240
+                                        && root.currentPage === 1 && videoCard.modelData.thumbnail)
+                                        ? "file://" + encodeURI(videoCard.modelData.thumbnail) : "",
+                                    title: videoCard.modelData.name || ""
+                                }));
+                                item.local = true;
+                                item.live = false;
+                                item.localVideo = true;
+                                item.selected = Qt.binding(() => root.selectedPath === videoCard.modelData.path);
+                                item.activated.connect(() => root.applyPath(videoCard.modelData.path));
                             }
-                            Rectangle {
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.bottom: parent.bottom
-                                height: 32
-                                color: "#B8000000"
-                                StyledText {
-                                    anchors.fill: parent
-                                    anchors.margins: 7
-                                    text: videoCard.modelData.name
-                                    elide: Text.ElideRight
-                                    color: "white"
-                                    font.pixelSize: Appearance.font.pixelSize.small
-                                }
-                            }
-                            MaterialSymbol {
-                                anchors.centerIn: parent
-                                text: "play_circle"
-                                iconSize: 32
-                                color: "white"
-                            }
-                            /*ColumnLayout {
-                                anchors.centerIn: parent
-                                width: parent.width - 20
-                                spacing: 6
-                                MaterialSymbol {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    text: "play_circle"
-                                    iconSize: 32
-                                    color: Appearance.colors.colPrimary
-                                }
-                                StyledText {
-                                    Layout.fillWidth: true
-                                    text: videoCard.modelData.name
-                                    elide: Text.ElideMiddle
-                                    horizontalAlignment: Text.AlignHCenter
-                                    font.pixelSize: Appearance.font.pixelSize.small
-                                }
-                            }
-                            */
-                            TapHandler { onTapped: root.applyPath(videoCard.modelData.path) }
-                            HoverHandler { cursorShape: Qt.PointingHandCursor }
                         }
                     }
                 }
