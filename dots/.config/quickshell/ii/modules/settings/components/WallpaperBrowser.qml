@@ -1,3 +1,4 @@
+import "."
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -5,6 +6,7 @@ import Quickshell.Io
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.services
+import "WallpaperUtils.js" as WallpaperUtils
 ContentSection {
     id: root
     title: Translation.tr("Explore wallpapers online")
@@ -81,29 +83,16 @@ ContentSection {
         { name: "Todos (NSFW)", code: "111" }
     ]
     function normalizedPath(path) {
-        let value = String(path || "");
-        if (value.startsWith("file://"))
-            value = decodeURIComponent(value.substring(7));
-        return value.replace(/\/+$/, "");
+        return WallpaperUtils.normalizedPath(path);
     }
     function cachedPathFor(item) {
-        if (!item || !item.id)
-            return "";
-        return String(cachedPaths[item.id] || "");
+        return WallpaperUtils.cachedPathFor(cachedPaths, item);
     }
     function isItemActive(item) {
-        const path = cachedPathFor(item);
-        return path.length > 0 &&
-            normalizedPath(path) ===
-                normalizedPath(activeWallpaperPath);
+        return WallpaperUtils.isItemActive(cachedPaths, item, activeWallpaperPath);
     }
     function updateCachedPath(id, path) {
-        const updated = Object.assign({}, cachedPaths);
-        if (path && String(path).length > 0)
-            updated[id] = String(path);
-        else
-            delete updated[id];
-        cachedPaths = updated;
+        cachedPaths = WallpaperUtils.withCachedPath(cachedPaths, id, path);
     }
     function formatBytes(value) {
         const bytes = Math.max(0, Number(value) || 0);
@@ -679,24 +668,30 @@ ContentSection {
                 placeholderText: "Pesquisar wallpapers..."
                 onAccepted: root.search(true)
             }
-            RippleButtonWithIcon {
-                Layout.preferredHeight: 48
-                enabled:
-                    !root.busy &&
-                    root.providersLoaded
-                buttonRadius: Appearance.rounding.small
-                materialIcon: "search"
-                mainText: "Pesquisar"
-                onClicked: root.search(true)
-            }
-            RippleButtonWithIcon {
-                Layout.preferredHeight: 48
-                enabled: !root.busy && root.providersLoaded && searchField.text.length > 0
-                buttonRadius: Appearance.rounding.small
-                materialIcon: "close"
-                mainText: "Limpar"
-                onClicked: root.clearSearch()
-            }
+Loader {
+    Layout.preferredHeight: 48
+    Layout.preferredWidth: item ? item.implicitWidth : 0
+
+    source: "WallpaperSearchActions.qml"
+
+    onLoaded: {
+        item.canSearch = Qt.binding(
+            () => !root.busy && root.providersLoaded
+        );
+
+        item.hasQuery = Qt.binding(
+            () => searchField.text.length > 0
+        );
+
+        item.searchRequested.connect(
+            () => root.search(true)
+        );
+
+        item.clearRequested.connect(
+            () => root.clearSearch()
+        );
+    }
+}
         }
         RowLayout {
             Layout.fillWidth: true

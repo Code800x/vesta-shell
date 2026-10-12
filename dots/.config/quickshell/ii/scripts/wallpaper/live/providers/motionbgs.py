@@ -6,14 +6,14 @@ import unicodedata
 from urllib.error import HTTPError
 from urllib.parse import quote, urlparse
 
-from core import (
+from ..core import (
     fetch_page,
     unique_items,
     validate_url,
     wallpaper_item,
 )
 
-from providers.search_service import SearchService
+from .search_service import SearchService
 
 
 class MotionBGS:

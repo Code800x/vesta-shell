@@ -8,7 +8,7 @@ provedores que utilizam APIs JSON com paginação nativa.
 import hashlib
 import json
 
-from live.providers.search_service import SearchCache
+from common.cache import SearchCache
 
 
 class CachedApiSearch:

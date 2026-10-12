@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """Downloads monitorados de live wallpapers do Vesta Shell."""
 
@@ -10,7 +11,7 @@ import zipfile
 from pathlib import Path
 from urllib.parse import urlparse
 
-from core import (
+from .core import (
     DESTINATION,
     MAX_FILE,
     VIDEO_EXTENSIONS,

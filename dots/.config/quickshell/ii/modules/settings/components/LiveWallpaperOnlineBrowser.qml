@@ -1,3 +1,4 @@
+import "."
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -5,6 +6,7 @@ import Quickshell.Io
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.services
+import "WallpaperUtils.js" as WallpaperUtils
 ContentSection {
     id: root
     title: "Explorar Live Wallpapers Online"
@@ -56,35 +58,18 @@ ContentSection {
         selectedWallpaper !== null &&
         providerSupportsDownload(selectedWallpaper.provider)
     function normalizedPath(path) {
-        let value = String(path || "");
-        if (value.startsWith("file://"))
-            value = decodeURIComponent(value.substring(7));
-        return value.replace(/\/+$/, "");
+        return WallpaperUtils.normalizedPath(path);
     }
     function cachedPathFor(item) {
-        if (!item || !item.id)
-            return "";
-        return String(cachedPaths[item.id] || "");
+        return WallpaperUtils.cachedPathFor(cachedPaths, item);
     }
     function isItemActive(item) {
-        const path = cachedPathFor(item);
-        return path.length > 0 &&
-            normalizedPath(path) ===
-                normalizedPath(activeWallpaperPath);
+        return WallpaperUtils.isItemActive(cachedPaths, item, activeWallpaperPath);
     }
     function updateCachedPath(id, path) {
-        const updated = Object.assign({}, cachedPaths);
-        if (path && String(path).length > 0)
-            updated[id] = String(path);
-        else
-            delete updated[id];
-        cachedPaths = updated;
-        if (
-            selectedWallpaper !== null &&
-            selectedWallpaper.id === id
-        ) {
+        cachedPaths = WallpaperUtils.withCachedPath(cachedPaths, id, path);
+        if (selectedWallpaper !== null && selectedWallpaper.id === id)
             cachedPath = String(path || "");
-        }
     }
     function providerIndex(code) {
         for (let i = 0; i < providers.length; i++) {
@@ -95,14 +80,11 @@ ContentSection {
     }
     function providerSupportsDownload(code) {
         const index = providerIndex(code);
-        return index >= 0 &&
-            providers[index].download === true;
+        return index >= 0 && providers[index].download === true;
     }
     function providerName(code) {
         const index = providerIndex(code);
-        return index >= 0
-            ? providers[index].name || code
-            : code;
+        return index >= 0 ? providers[index].name || code : code;
     }
     function formatBytes(bytes) {
         const value = Number(bytes);
@@ -728,27 +710,30 @@ ContentSection {
                     "Pesquisar wallpapers animados..."
                 onAccepted: root.search(true)
             }
-            RippleButtonWithIcon {
-                Layout.preferredHeight: 48
-                enabled:
-                    !root.busy &&
-                    root.providersLoaded
-                materialIcon: "search"
-                mainText: "Pesquisar"
-                buttonRadius: Appearance.rounding.small
-                onClicked: root.search(true)
-            }
-            RippleButtonWithIcon {
-                Layout.preferredHeight: 48
-                enabled:
-                    !root.busy &&
-                    root.providersLoaded &&
-                    searchField.text.length > 0
-                buttonRadius: Appearance.rounding.small
-                materialIcon: "close"
-                mainText: "Limpar"
-                onClicked: root.clearSearch()
-            }
+Loader {
+    Layout.preferredHeight: 48
+    Layout.preferredWidth: item ? item.implicitWidth : 0
+
+    source: "WallpaperSearchActions.qml"
+
+    onLoaded: {
+        item.canSearch = Qt.binding(
+            () => !root.busy && root.providersLoaded
+        );
+
+        item.hasQuery = Qt.binding(
+            () => searchField.text.length > 0
+        );
+
+        item.searchRequested.connect(
+            () => root.search(true)
+        );
+
+        item.clearRequested.connect(
+            () => root.clearSearch()
+        );
+    }
+}
         }
         RowLayout {
             Layout.fillWidth: true
