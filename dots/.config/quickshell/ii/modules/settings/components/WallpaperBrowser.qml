@@ -223,6 +223,12 @@ ContentSection {
         category = "111";
         search(true);
     }
+    function clearSearch() {
+        if (root.busy || !root.providersLoaded || searchField.text.length === 0)
+            return;
+        searchField.text = "";
+        root.search(true);
+    }
     function search(resetPage) {
         if (busy || !providersLoaded)
             return;
@@ -682,6 +688,14 @@ ContentSection {
                 materialIcon: "search"
                 mainText: "Pesquisar"
                 onClicked: root.search(true)
+            }
+            RippleButtonWithIcon {
+                Layout.preferredHeight: 48
+                enabled: !root.busy && root.providersLoaded && searchField.text.length > 0
+                buttonRadius: Appearance.rounding.small
+                materialIcon: "close"
+                mainText: "Limpar"
+                onClicked: root.clearSearch()
             }
         }
         RowLayout {
