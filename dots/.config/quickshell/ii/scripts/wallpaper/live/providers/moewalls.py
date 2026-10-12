@@ -1,7 +1,6 @@
 
 """Provedor MoeWalls para wallpapers animados."""
 
-from urllib.error import HTTPError
 from urllib.parse import quote, urlparse
 
 from ..core import (
@@ -11,6 +10,7 @@ from ..core import (
     wallpaper_item,
 )
 
+from .http_errors import fetch_listing_or_end
 from .search_service import SearchService
 
 
@@ -48,15 +48,15 @@ class MoeWalls:
         return url
 
     def fetch_source_page(self, query, number):
-        try:
-            document = fetch_page(
-                self.listing_url(query, number),
-                self.hosts,
-            )
-        except HTTPError as error:
-            if error.code == 404:
-                return [], 0
-            raise
+        document = fetch_listing_or_end(
+            fetch_page,
+            self.listing_url(query, number),
+            self.hosts,
+            page=number,
+            missing_page_is_end=True,
+        )
+        if document is None:
+            return [], 0
 
         items = []
         source_urls = set()

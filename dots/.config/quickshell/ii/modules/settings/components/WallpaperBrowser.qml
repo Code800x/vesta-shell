@@ -7,6 +7,8 @@ import qs.modules.common.widgets
 import qs.services
 import "WallpaperUtils.js" as WallpaperUtils
 import "WallpaperPagination.js" as WallpaperPagination
+import "WallpaperCommands.js" as WallpaperCommands
+import "WallpaperResponses.js" as WallpaperResponses
 ContentSection {
     id: root
     title: Translation.tr("Explore wallpapers online")
@@ -18,6 +20,7 @@ ContentSection {
     )
     property var results: []
     property int page: 1
+    property int lastSuccessfulPage: 1
     property int lastPage: 1
     property string provider: "wallhaven"
     property string category: "111"
@@ -49,8 +52,8 @@ ContentSection {
         normalizedPath(selectedCachedPath) ===
             normalizedPath(activeWallpaperPath)
     readonly property bool busy:
-        providerProc.running ||
-        searchProc.running ||
+        (providerControllerLoader.item !== null && providerControllerLoader.item.running) ||
+        (searchControllerLoader.item !== null && searchControllerLoader.item.running) ||
         downloadProc.running ||
         downloadCancelling
     readonly property bool canApply:
@@ -166,14 +169,14 @@ ContentSection {
         lastPage = 1;
         hasError = false;
         feedback = "Atualizando provedores...";
-        providerProc.command = [
-            "python3",
-            scriptPath,
-            "providers",
-            "--purity",
-            purity
-        ];
-        providerProc.running = true;
+        if (providerControllerLoader.item === null) {
+            hasError = true;
+            feedback = "Controlador de provedores indisponível.";
+            return;
+        }
+        providerControllerLoader.item.start(
+            WallpaperCommands.providers(scriptPath, purity, false)
+        );
     }
     function changePurity(code) {
         if (busy || purity === code)
@@ -208,35 +211,21 @@ ContentSection {
             feedback = "Nenhum provedor disponível.";
             return;
         }
-        if (resetPage) {
+        if (resetPage)
             page = 1;
-            lastPage = 1;
-        }
-        clearSelection();
-        cachedPaths = ({});
-        checkingCache = false;
         hasError = false;
         feedback = "Pesquisando wallpapers...";
-        searchProc.command = [
-            "python3",
-            scriptPath,
-            "search",
-            "--provider",
-            provider,
-            "--query",
-            searchField.text,
-            "--categories",
-            category,
-            "--sorting",
-            sorting,
-            "--resolutions",
-            resolution,
-            "--purity",
-            purity,
-            "--page",
-            String(page)
-        ];
-        searchProc.running = true;
+        if (searchControllerLoader.item === null) {
+            hasError = true;
+            feedback = "Controlador de pesquisa indisponível.";
+            return;
+        }
+        searchControllerLoader.item.start(
+            WallpaperCommands.searchStatic(
+                scriptPath, provider, searchField.text, category,
+                sorting, resolution, purity, page
+            )
+        );
     }
     function refreshCacheBatch() {
         if (batchProc.running) {
@@ -382,68 +371,38 @@ ContentSection {
             feedback = data.error || "Falha no download.";
         }
     }
-    Process {
-        id: providerProc
-        running: false
-        stdout: StdioCollector {
-            id: providerOutput
+    Loader {
+        id: providerControllerLoader
+        active: true
+        source: "WallpaperProviderController.qml"
+        onLoaded: {
+            item.completed.connect(root.handleProvidersCompleted);
+            item.failed.connect(root.handleProvidersFailed);
         }
-        stderr: StdioCollector {
-            id: providerErrors
+    }
+    function handleProvidersCompleted(validProviders) {
+        root.availableProviders = validProviders;
+        root.providersLoaded = true;
+        if (validProviders.length === 0) {
+            root.hasError = true;
+            root.feedback = "Nenhum provedor disponível para este conteúdo.";
+            return;
         }
-        onExited: (exitCode, exitStatus) => {
-            try {
-                const data = JSON.parse(
-                    providerOutput.text.trim()
-                );
-                if (exitCode !== 0 || data.ok !== true) {
-                    throw new Error(
-                        data.error ||
-                        "Falha ao consultar provedores."
-                    );
-                }
-                if (!Array.isArray(data.providers)) {
-                    throw new Error(
-                        "Lista de provedores inválida."
-                    );
-                }
-                const validProviders = data.providers.filter(
-                    item =>
-                        item &&
-                        typeof item.code === "string" &&
-                        typeof item.name === "string"
-                );
-                root.availableProviders = validProviders;
-                root.providersLoaded = true;
-                if (validProviders.length === 0) {
-                    root.hasError = true;
-                    root.feedback =
-                        "Nenhum provedor disponível para este conteúdo.";
-                    return;
-                }
-                if (root.providerIndex(root.provider) === -1)
-                    root.provider = validProviders[0].code;
-                root.hasError = false;
-                root.feedback = "";
-                initialSearchTimer.restart();
-            } catch (error) {
-                root.availableProviders = [];
-                root.providersLoaded = false;
-                root.results = [];
-                root.cachedPaths = ({});
-                root.hasError = true;
-                root.feedback =
-                    "Erro ao carregar provedores: " +
-                    error.message;
-                const details = providerErrors.text.trim();
-                if (details.length > 0) {
-                    console.warn(
-                        "[WallpaperBrowser] Providers:",
-                        details
-                    );
-                }
-            }
-        }
+        if (root.providerIndex(root.provider) === -1)
+            root.provider = validProviders[0].code;
+        root.hasError = false;
+        root.feedback = "";
+        initialSearchTimer.restart();
+    }
+    function handleProvidersFailed(message, details) {
+        root.availableProviders = [];
+        root.providersLoaded = false;
+        root.results = [];
+        root.cachedPaths = ({});
+        root.hasError = true;
+        root.feedback = "Erro ao carregar provedores: " + message;
+        if (details.length > 0)
+            console.warn("[WallpaperBrowser] Providers:", details);
     }
     Timer {
         id: initialSearchTimer
@@ -451,67 +410,35 @@ ContentSection {
         repeat: false
         onTriggered: root.search(true)
     }
-    Process {
-        id: searchProc
-        running: false
-        stdout: StdioCollector {
-            id: searchOutput
+    Loader {
+        id: searchControllerLoader
+        active: true
+        source: "WallpaperSearchController.qml"
+        onLoaded: {
+            item.completed.connect(root.handleSearchCompleted);
+            item.failed.connect(root.handleSearchFailed);
         }
-        stderr: StdioCollector {
-            id: searchErrors
-        }
-        onExited: (exitCode, exitStatus) => {
-            try {
-                const data = JSON.parse(
-                    searchOutput.text.trim()
-                );
-                if (exitCode !== 0 || data.ok !== true) {
-                    throw new Error(
-                        data.error || "Falha na pesquisa."
-                    );
-                }
-                const incoming = Array.isArray(data.items)
-                    ? data.items : [];
-                const seenIds = {};
-                const seenUrls = {};
-                root.results = incoming.filter(item => {
-                    if (!item || !item.id || !item.thumb)
-                        return false;
-                    const id = String(item.id);
-                    const url = String(item.url || "");
-                    if (seenIds[id] || (url && seenUrls[url]))
-                        return false;
-                    seenIds[id] = true;
-                    if (url)
-                        seenUrls[url] = true;
-                    return true;
-                });
-                root.lastPage = Math.max(
-                    1,
-                    Number(data.last_page) || 1
-                );
-                root.hasError = false;
-                root.feedback = root.results.length > 0
-                    ? ""
-                    : "Nenhum wallpaper encontrado.";
-                grid.positionViewAtBeginning();
-                root.refreshCacheBatch();
-            } catch (error) {
-                root.results = [];
-                root.cachedPaths = ({});
-                root.checkingCache = false;
-                root.hasError = true;
-                root.feedback =
-                    "Erro na pesquisa: " + error.message;
-                const details = searchErrors.text.trim();
-                if (details.length > 0) {
-                    console.warn(
-                        "[WallpaperBrowser] Search:",
-                        details
-                    );
-                }
-            }
-        }
+    }
+    function handleSearchCompleted(items, lastPage) {
+        root.clearSelection();
+        root.cachedPaths = ({});
+        root.checkingCache = false;
+        root.results = items;
+        root.lastPage = lastPage;
+        root.lastSuccessfulPage = root.page;
+        root.hasError = false;
+        root.feedback = root.results.length > 0
+            ? ""
+            : "Nenhum wallpaper encontrado.";
+        grid.positionViewAtBeginning();
+        root.refreshCacheBatch();
+    }
+    function handleSearchFailed(message, details) {
+        root.page = root.lastSuccessfulPage;
+        root.hasError = true;
+        root.feedback = "Erro na pesquisa: " + message;
+        if (details.length > 0)
+            console.warn("[WallpaperBrowser] Search:", details);
     }
     Process {
         id: batchProc

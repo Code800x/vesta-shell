@@ -1,7 +1,5 @@
-
 """Provedor DesktopHut para wallpapers animados."""
 
-from urllib.error import HTTPError
 from urllib.parse import quote, urlparse
 
 from ..core import (
@@ -10,7 +8,7 @@ from ..core import (
     validate_url,
     wallpaper_item,
 )
-
+from .http_errors import fetch_listing_or_end
 from .search_service import SearchService
 
 
@@ -34,31 +32,21 @@ class DesktopHut:
 
     def listing_url(self, query, number):
         term = str(query or "").strip()
-
-        path = (
-            "/search/" + quote(term, safe="")
-            if term
-            else "/"
-        )
-
-        suffix = (
-            f"?page={number}"
-            if number > 1
-            else ""
-        )
-
+        path = "/search/" + quote(term, safe="") if term else "/"
+        suffix = f"?page={number}" if number > 1 else ""
         return self.base + path + suffix
 
     def fetch_source_page(self, query, number):
-        try:
-            document = fetch_page(
-                self.listing_url(query, number),
-                self.hosts,
-            )
-        except HTTPError as error:
-            if error.code == 404:
-                return [], 0
-            raise
+        url = self.listing_url(query, number)
+        document = fetch_listing_or_end(
+            fetch_page,
+            self.listing_url(query, number),
+            self.hosts,
+            page=number,
+            missing_page_is_end=True,
+        )
+        if document is None:
+            return [], 0
 
         items = []
         source_urls = set()
@@ -74,70 +62,36 @@ class DesktopHut:
                 continue
 
             path = urlparse(url).path.strip("/")
-
             if not path or "/" in path or not thumb:
                 continue
-
-            if (
-                "wallpaper" not in path.lower()
-                and "wallpaper" not in title.lower()
-            ):
+            if "wallpaper" not in path.lower() and "wallpaper" not in title.lower():
                 continue
-
             if url in source_urls:
                 continue
 
             source_urls.add(url)
-
-            items.append(
-                wallpaper_item(
-                    self.code,
-                    url,
-                    title,
-                    thumb,
-                )
-            )
+            items.append(wallpaper_item(self.code, url, title, thumb))
 
         return unique_items(items), len(source_urls)
 
     def fetch(self, query, number):
         """Compatibilidade com a API anterior."""
-        items, _ = self.fetch_source_page(
-            query,
-            number,
-        )
-
+        items, _ = self.fetch_source_page(query, number)
         return items
 
     def search(self, query, number):
-        return self.search_service.search(
-            query,
-            number,
-        )
+        return self.search_service.search(query, number)
 
     def resolve(self, url, item=None):
         validate_url(url, self.hosts)
-
         document = fetch_page(url, self.hosts)
 
         for link in document.links:
             source = link["url"]
             path = urlparse(source).path.lower()
-
-            if not path.endswith(
-                (".mp4", ".webm", ".zip")
-            ):
+            if not path.endswith((".mp4", ".webm", ".zip")):
                 continue
+            if link["download"] or "/files/" in path:
+                return validate_url(source, self.hosts)
 
-            if (
-                link["download"]
-                or "/files/" in path
-            ):
-                return validate_url(
-                    source,
-                    self.hosts,
-                )
-
-        raise ValueError(
-            "Arquivo original não encontrado no DesktopHut."
-        )
+        raise ValueError("Arquivo original não encontrado no DesktopHut.")

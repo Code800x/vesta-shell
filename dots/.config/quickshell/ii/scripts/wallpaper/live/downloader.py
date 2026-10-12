@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """Downloads monitorados de live wallpapers do Vesta Shell."""
 

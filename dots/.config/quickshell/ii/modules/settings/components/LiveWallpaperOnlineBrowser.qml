@@ -7,6 +7,8 @@ import qs.modules.common.widgets
 import qs.services
 import "WallpaperUtils.js" as WallpaperUtils
 import "WallpaperPagination.js" as WallpaperPagination
+import "WallpaperCommands.js" as WallpaperCommands
+import "WallpaperResponses.js" as WallpaperResponses
 ContentSection {
     id: root
     title: "Explorar Live Wallpapers Online"
@@ -21,6 +23,7 @@ ContentSection {
     property var selectedWallpaper: null
     property string provider: "desktophut"
     property int page: 1
+    property int lastSuccessfulPage: 1
     property int lastPage: 1
     property bool totalKnown: false
     property string feedback: ""
@@ -46,10 +49,10 @@ ContentSection {
     property string downloadParseError: ""
     property bool cancelRequested: false
     readonly property bool downloading: downloadProc.running
-    readonly property bool searching: searchProc.running
+    readonly property bool searching: searchControllerLoader.item !== null && searchControllerLoader.item.running
     readonly property bool busy:
-        providerProc.running ||
-        searchProc.running ||
+        (providerControllerLoader.item !== null && providerControllerLoader.item.running) ||
+        searching ||
         downloadProc.running
     readonly property bool canApply:
         !busy &&
@@ -190,12 +193,15 @@ ContentSection {
         feedback = "Carregando provedores...";
         hasError = false;
         providersLoaded = false;
-        providerProc.command = [
-            "python3",
-            scriptPath,
-            "providers"
-        ];
-        providerProc.running = true;
+        if (providerControllerLoader.item === null) {
+            providersLoaded = false;
+            hasError = true;
+            feedback = "Controlador de provedores indisponível.";
+            return;
+        }
+        providerControllerLoader.item.start(
+            WallpaperCommands.providers(scriptPath, "", true)
+        );
     }
     function clearSearch() {
         if (root.busy || !root.providersLoaded ||
@@ -208,27 +214,21 @@ ContentSection {
     function search(resetPage) {
         if (busy || !providersLoaded)
             return;
-        if (resetPage) {
+        if (resetPage)
             page = 1;
-            lastPage = 1;
-            totalKnown = false;
-        }
-        clearSelection();
-        cachedPaths = ({});
         feedback = "Pesquisando wallpapers animados...";
         hasError = false;
-        searchProc.command = [
-            "python3",
-            scriptPath,
-            "search",
-            "--provider",
-            provider,
-            "--query",
-            searchField.text.trim(),
-            "--page",
-            String(page)
-        ];
-        searchProc.running = true;
+        if (searchControllerLoader.item === null) {
+            hasError = true;
+            feedback = "Controlador de pesquisa indisponível.";
+            return;
+        }
+        searchControllerLoader.item.start(
+            WallpaperCommands.searchLive(
+                scriptPath, provider, searchField.text.trim(), page
+            ),
+            page
+        );
     }
     // O backend atual só confirma a existência
     // da próxima página. Não inventamos um total.
@@ -341,65 +341,39 @@ ContentSection {
             downloadResult = data;
     }
     function processError(output, errors, fallback) {
-        let message = fallback;
-        try {
-            const data = JSON.parse(output.trim());
-            if (data.error)
-                message = data.error;
-        } catch (error) {
-            const stderrText = errors.trim();
-            if (stderrText.length > 0) {
-                const lines = stderrText.split("\n");
-                message = lines[lines.length - 1] || fallback;
-            }
-        }
-        return message;
+        return WallpaperCommands.processError(output, errors, fallback);
     }
-    Process {
-        id: providerProc
-        running: false
-        stdout: StdioCollector {
-            id: providerOutput
+    Loader {
+        id: providerControllerLoader
+        active: true
+        source: "WallpaperProviderController.qml"
+        onLoaded: {
+            item.completed.connect(root.handleProvidersCompleted);
+            item.failed.connect(root.handleProvidersFailed);
         }
-        stderr: StdioCollector {
-            id: providerErrors
+    }
+    function handleProvidersCompleted(availableProviders) {
+        root.providers = availableProviders;
+        root.providersLoaded = true;
+        if (
+            root.providerIndex(root.provider) < 0 &&
+            root.providers.length > 0
+        ) {
+            root.provider = root.providers[0].code;
         }
-        onExited: (exitCode, exitStatus) => {
-            try {
-                const data = JSON.parse(
-                    providerOutput.text.trim()
-                );
-                if (exitCode !== 0 || data.ok !== true) {
-                    throw new Error(
-                        data.error ||
-                        "Falha ao carregar provedores."
-                    );
-                }
-                root.providers = data.providers || [];
-                root.providersLoaded = true;
-                if (
-                    root.providerIndex(root.provider) < 0 &&
-                    root.providers.length > 0
-                ) {
-                    root.provider = root.providers[0].code;
-                }
-                root.feedback = "";
-                root.hasError = false;
-                if (root.providers.length > 0)
-                    initialSearch.restart();
-                else
-                    root.feedback = "Nenhum provedor disponível.";
-            } catch (error) {
-                root.providersLoaded = false;
-                root.hasError = true;
-                root.feedback = "Erro nos provedores: " +
-                    root.processError(
-                        providerOutput.text,
-                        providerErrors.text,
-                        error.message
-                    );
-            }
-        }
+        root.feedback = "";
+        root.hasError = false;
+        if (root.providers.length > 0)
+            initialSearch.restart();
+        else
+            root.feedback = "Nenhum provedor disponível.";
+    }
+    function handleProvidersFailed(message, details) {
+        root.providersLoaded = false;
+        root.hasError = true;
+        root.feedback = "Erro nos provedores: " + message;
+        if (details.length > 0)
+            console.warn("[LiveWallpaperOnlineBrowser] Providers:", details);
     }
     Timer {
         id: initialSearch
@@ -407,58 +381,37 @@ ContentSection {
         repeat: false
         onTriggered: root.search(true)
     }
-    Process {
-        id: searchProc
-        running: false
-        stdout: StdioCollector {
-            id: searchOutput
+    Loader {
+        id: searchControllerLoader
+        active: true
+        source: "LiveWallpaperSearchController.qml"
+        onLoaded: {
+            item.completed.connect(root.handleSearchCompleted);
+            item.failed.connect(root.handleSearchFailed);
         }
-        stderr: StdioCollector {
-            id: searchErrors
-        }
-        onExited: (exitCode, exitStatus) => {
-            try {
-                const data = JSON.parse(
-                    searchOutput.text.trim()
-                );
-                if (exitCode !== 0 || data.ok !== true) {
-                    throw new Error(
-                        data.error || "Falha na pesquisa."
-                    );
-                }
-                root.results = data.items || [];
-                root.page = Math.max(
-                    1,
-                    Number(data.page) || root.page
-                );
-                root.lastPage = Math.max(
-                    root.page,
-                    Number(data.last_page) || root.page
-                );
-                // Os provedores atuais informam somente
-                // se existe uma próxima página.
-                root.totalKnown =
-                    root.lastPage <= root.page;
-                root.hasError = false;
-                root.feedback = root.results.length > 0
-                    ? ""
-                    : "Nenhum wallpaper encontrado.";
-                grid.positionViewAtBeginning();
-                root.refreshCacheBatch();
-            } catch (error) {
-                root.results = [];
-                root.cachedPaths = ({});
-                root.lastPage = root.page;
-                root.totalKnown = false;
-                root.hasError = true;
-                root.feedback = "Erro na pesquisa: " +
-                    root.processError(
-                        searchOutput.text,
-                        searchErrors.text,
-                        error.message
-                    );
-            }
-        }
+    }
+    function handleSearchCompleted(items, resultPage, resultLastPage) {
+        root.clearSelection();
+        root.cachedPaths = ({});
+        root.results = items;
+        root.page = resultPage;
+        root.lastSuccessfulPage = resultPage;
+        root.lastPage = resultLastPage;
+        // O backend informa apenas se existe a próxima página.
+        root.totalKnown = root.lastPage <= root.page;
+        root.hasError = false;
+        root.feedback = root.results.length > 0
+            ? ""
+            : "Nenhum wallpaper encontrado.";
+        grid.positionViewAtBeginning();
+        root.refreshCacheBatch();
+    }
+    function handleSearchFailed(message, details) {
+        root.page = root.lastSuccessfulPage;
+        root.hasError = true;
+        root.feedback = "Erro na pesquisa: " + message;
+        if (details.length > 0)
+            console.warn("[LiveWallpaperOnlineBrowser] Search:", details);
     }
     Process {
         id: batchProc
