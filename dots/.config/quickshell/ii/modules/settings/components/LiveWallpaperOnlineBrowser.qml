@@ -549,7 +549,8 @@ ContentSection {
             true
         );
         root.downloadLifecycle = outcome.state;
-        if (root.cancelRequested) {
+        const actions = WallpaperDownloadLifecycle.finishActions(outcome);
+        if (actions.clearCancellation) {
             root.downloadStage = "";
             root.feedback = "Download cancelado.";
             root.hasError = false;
@@ -557,7 +558,7 @@ ContentSection {
             return;
         }
         const data = root.downloadResult;
-        if (outcome.succeeded) {
+        if (actions.applyResult) {
             const path = String(data.path);
             if (root.selectedWallpaper !== null) {
                 root.updateCachedPath(

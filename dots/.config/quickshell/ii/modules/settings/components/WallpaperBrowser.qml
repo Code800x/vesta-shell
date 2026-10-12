@@ -476,7 +476,8 @@ ContentSection {
             root.downloadLifecycle, exitCode, root.downloadCompleted, false
         );
         root.downloadLifecycle = outcome.state;
-        if (root.downloadCancelling) {
+        const actions = WallpaperDownloadLifecycle.finishActions(outcome);
+        if (actions.clearCancellation) {
             root.downloadCancelling = false;
             root.downloadPercentage = -1;
             root.downloadedBytes = 0;
@@ -485,11 +486,11 @@ ContentSection {
             root.feedback = "Download cancelado.";
             return;
         }
-        if (outcome.succeeded) {
+        if (actions.applyResult) {
             root.downloadCompleted = false;
             return;
         }
-        if (exitCode !== 0) {
+        if (actions.reportFailure && exitCode !== 0) {
             root.hasError = true;
             if (!root.feedback ||
                 root.feedback === "Baixando wallpaper..." ||

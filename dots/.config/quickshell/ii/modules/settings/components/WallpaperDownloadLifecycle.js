@@ -53,3 +53,14 @@ function terminal(current, exitCode, hasResult, requireZeroExit) {
         failed: !succeeded
     };
 }
+
+// Ações de interface derivadas da decisão terminal, sem efeitos colaterais.
+// O navegador continua responsável por aplicar wallpapers e atualizar o cache.
+function finishActions(outcome) {
+    return {
+        clearCancellation: outcome.cancelled === true,
+        clearProgress: outcome.cancelled === true,
+        applyResult: outcome.succeeded === true,
+        reportFailure: outcome.failed === true
+    };
+}
