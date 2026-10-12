@@ -128,59 +128,89 @@ def merge_dict(base, source, target, prefix=''):
 
 
 def package_command(package):
+    """Instala somente pacotes faltantes; mpvpaper pode não existir nos repos."""
     if shutil.which('pacman'):
-        if package == 'mpvpaper' and shutil.which('paru'):
-            return ['paru', '-S', '--needed', '--noconfirm', package]
-        if package == 'mpvpaper' and shutil.which('yay'):
-            return ['yay', '-S', '--needed', '--noconfirm', package]
-        return ['sudo', 'pacman', '-S', '--needed', '--noconfirm', package]
+        if package == 'mpvpaper':
+            for helper in ('paru', 'yay'):
+                if shutil.which(helper):
+                    return [helper, '-S', '--needed', package]
+        return ['sudo', 'pacman', '-S', '--needed', package]
     if shutil.which('dnf'):
-        return ['sudo', 'dnf', 'install', '-y', package]
+        return ['sudo', 'dnf', 'install', package]
     if shutil.which('zypper'):
-        return ['sudo', 'zypper', '--non-interactive', 'install', package]
+        return ['sudo', 'zypper', 'install', package]
     if shutil.which('apt-get'):
-        return ['sudo', 'apt-get', 'install', '-y', package]
+        return ['sudo', 'apt-get', 'install', package]
     raise RuntimeError('Gerenciador de pacotes não reconhecido; instale as dependências manualmente.')
 
 
 def ensure_dependencies(dry_run, no_packages):
-    required = ['python3', 'ffmpeg', 'ffprobe', 'mpv', 'mpvpaper', 'patch', 'git']
+    required = ['ffmpeg', 'ffprobe', 'mpvpaper', 'mpv', 'patch', 'git']
     missing = [name for name in required if not shutil.which(name)]
     if not missing:
         print('[OK] Dependências executáveis encontradas')
         return
     print('[INFO] Dependências ausentes:', ', '.join(missing))
+    packages = {'ffmpeg': 'ffmpeg', 'ffprobe': 'ffmpeg', 'mpvpaper': 'mpvpaper',
+                'mpv': 'mpv', 'patch': 'patch', 'git': 'git'}
     if no_packages:
         raise RuntimeError('Dependências ausentes; remova --no-packages para instalar automaticamente.')
-    packages = {'python3': 'python3', 'ffmpeg': 'ffmpeg', 'ffprobe': 'ffmpeg',
-                'mpv': 'mpv', 'mpvpaper': 'mpvpaper', 'patch': 'patch', 'git': 'git'}
     for package in dict.fromkeys(packages[name] for name in missing):
         cmd = package_command(package)
         if dry_run:
             print('[DRY-RUN] Instalaria:', ' '.join(cmd))
-        else:
-            print('[INFO] Instalando:', package)
+            continue
+        print('[INFO] Instalando:', package)
+        try:
             run(cmd)
+        except RuntimeError as exc:
+            if package == 'mpvpaper':
+                raise RuntimeError(
+                    'Não foi possível instalar mpvpaper automaticamente. '
+                    'Em algumas distribuições ele requer AUR, COPR ou compilação. '
+                    'Instale mpvpaper manualmente e execute o instalador novamente.\n' + str(exc)
+                ) from exc
+            raise
     if not dry_run:
         remaining = [name for name in required if not shutil.which(name)]
         if remaining:
-            raise RuntimeError('Instalação de pacotes incompleta: ' + ', '.join(remaining))
+            raise RuntimeError('Dependências ainda ausentes: ' + ', '.join(remaining))
 
 
 def source_files():
-    dirs = ['scripts/wallpaper', 'scripts/keyboard']
-    files = [
+    """Inclui a árvore nova completa, sem caches ou artefatos temporários."""
+    directories = [
+        'modules/settings/wallpaper',
+        'scripts/wallpaper',
+        'scripts/keyboard',
+    ]
+    required = [
         'modules/settings/WallpapersConfig.qml',
-        'modules/settings/components/WallpaperBrowser.qml',
-        'modules/settings/components/LiveWallpaperBrowser.qml',
-        'modules/settings/components/LiveWallpaperOnlineBrowser.qml',
         'modules/settings/components/KeyboardLayoutConfig.qml',
     ]
-    for directory in dirs:
-        for path in (SOURCE / directory).rglob('*'):
-            if path.is_file() and '__pycache__' not in path.parts and path.suffix != '.pyc':
-                files.append(str(path.relative_to(SOURCE)))
-    return sorted(set(files))
+    optional = [
+        'modules/settings/wallpaper/views/WallpaperBrowser.qml',
+        'modules/settings/wallpaper/views/LiveWallpaperOnlineBrowser.qml',
+        'modules/settings/wallpaper/views/LocalWallpaperLibrary.qml',
+        'modules/settings/wallpaper/views/LiveWallpaperBrowser.qml',
+        'modules/settings/wallpaper/components/WallpaperCard.qml',
+        'scripts/wallpaper/local_library.py',
+    ]
+    for name in required + optional:
+        if not (SOURCE / name).is_file():
+            raise RuntimeError('Arquivo obrigatório do projeto não encontrado: ' + str(SOURCE / name))
+    files = set(required)
+    for directory in directories:
+        folder = SOURCE / directory
+        if not folder.is_dir():
+            raise RuntimeError('Diretório obrigatório não encontrado: ' + str(folder))
+        for path in folder.rglob('*'):
+            if (path.is_file() and not path.is_symlink()
+                    and not any(part in ('__pycache__', '.git', '.pytest_cache') for part in path.parts)
+                    and path.suffix not in ('.pyc', '.pyo')
+                    and not path.name.endswith(('~', '.swp', '.bak'))):
+                files.add(str(path.relative_to(SOURCE)))
+    return sorted(files)
 
 
 def main():
@@ -200,13 +230,17 @@ def main():
         src = SOURCE / name
         dst = TARGET / name
         content = src.read_bytes()
+        if dst.is_symlink():
+            raise RuntimeError(f'Destino é um link simbólico; intervenção manual necessária: {dst}')
+        if dst.exists() and not dst.is_file():
+            raise RuntimeError(f'Destino não é um arquivo regular: {dst}')
         if dst.exists() and dst.read_bytes() != content:
-            # Componentes específicos do Vesta podem ser atualizados; os scripts
-            # são instalados em diretórios dedicados. Backup preserva a versão anterior.
-            if not (name.startswith('scripts/wallpaper/') or
-                    name.startswith('scripts/keyboard/') or
-                    name.endswith(('WallpaperBrowser.qml', 'LiveWallpaperBrowser.qml',
-                                   'LiveWallpaperOnlineBrowser.qml', 'KeyboardLayoutConfig.qml'))):
+            managed = (name.startswith('modules/settings/wallpaper/') or
+                       name.startswith('scripts/wallpaper/') or
+                       name.startswith('scripts/keyboard/') or
+                       name in ('modules/settings/WallpapersConfig.qml',
+                                'modules/settings/components/KeyboardLayoutConfig.qml'))
+            if not managed:
                 raise RuntimeError(f'Conflito com arquivo existente: {dst}')
         changes[dst] = content
     changes[TARGET / 'settings.qml'] = merge_settings()
