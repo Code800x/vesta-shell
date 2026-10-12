@@ -3,7 +3,8 @@
 
 import re
 import unicodedata
-from urllib.parse import quote, urlparse
+from urllib.error import HTTPError
+from urllib.parse import quote, urlencode, urlparse
 
 from ..core import (
     fetch_page,
@@ -76,6 +77,29 @@ class MotionBGS:
 
         return self.base + "/"
 
+    def search_url(self, query, number):
+        """URL alternativa de pesquisa do MotionBGS."""
+        parameters = {"q": str(query).strip()}
+
+        if number > 1:
+            parameters["page"] = number
+
+        return (
+            self.base
+            + "/search?"
+            + urlencode(parameters)
+        )
+
+    def fetch_search_page(self, query, number):
+        """Tenta a pesquisa alternativa sem mascarar erros reais."""
+        return fetch_listing_or_end(
+            fetch_page,
+            self.search_url(query, number),
+            self.hosts,
+            page=number,
+            missing_page_is_end=True,
+        )
+
     @staticmethod
     def media_id(image_url):
         match = re.search(
@@ -111,13 +135,47 @@ class MotionBGS:
         )
 
     def fetch_source_page(self, query, number):
-        document = fetch_listing_or_end(
-            fetch_page,
-            self.listing_url(query, number),
-            self.hosts,
-            page=number,
-            missing_page_is_end=bool(str(query).strip()),
-        )
+        term = str(query or "").strip()
+
+        if term:
+            # Primeiro tenta a URL de tag existente.
+            # Se ela não existir, utiliza a pesquisa alternativa.
+            try:
+                document = fetch_page(
+                    self.listing_url(query, number),
+                    self.hosts,
+                )
+            except HTTPError as error:
+                if error.code not in (404, 410):
+                    raise
+
+                try:
+                    document = self.fetch_search_page(
+                        query,
+                        number,
+                    )
+                except HTTPError as search_error:
+                    if (
+                        number == 1
+                        and search_error.code in (404, 410)
+                    ):
+                        raise RuntimeError(
+                            "O MotionBGS não disponibilizou "
+                            "a pesquisa solicitada. "
+                            "As URLs de tag e pesquisa "
+                            "retornaram HTTP 404/410."
+                        ) from search_error
+
+                    raise
+        else:
+            document = fetch_listing_or_end(
+                fetch_page,
+                self.listing_url(query, number),
+                self.hosts,
+                page=number,
+                missing_page_is_end=False,
+            )
+
         if document is None:
             return [], 0
 

@@ -9,6 +9,9 @@ import "WallpaperUtils.js" as WallpaperUtils
 import "WallpaperPagination.js" as WallpaperPagination
 import "WallpaperCommands.js" as WallpaperCommands
 import "WallpaperResponses.js" as WallpaperResponses
+import "WallpaperDownloadEvents.js" as WallpaperDownloadEvents
+import "WallpaperDownloadState.js" as WallpaperDownloadState
+import "WallpaperDownloadLifecycle.js" as WallpaperDownloadLifecycle
 ContentSection {
     id: root
     title: Translation.tr("Explore wallpapers online")
@@ -38,6 +41,7 @@ ContentSection {
     property bool checkingCache: false
     property bool downloadCancelling: false
     property bool downloadCompleted: false
+    property string downloadLifecycle: WallpaperDownloadLifecycle.IDLE
     property int downloadPercentage: -1
     property double downloadedBytes: 0
     property double downloadTotalBytes: 0
@@ -54,7 +58,7 @@ ContentSection {
     readonly property bool busy:
         (providerControllerLoader.item !== null && providerControllerLoader.item.running) ||
         (searchControllerLoader.item !== null && searchControllerLoader.item.running) ||
-        downloadProc.running ||
+        (downloadController.item !== null && downloadController.item.running) ||
         downloadCancelling
     readonly property bool canApply:
         !busy &&
@@ -114,9 +118,10 @@ ContentSection {
         return current + " transferidos";
     }
     function resetDownloadProgress() {
-        downloadPercentage = -1;
-        downloadedBytes = 0;
-        downloadTotalBytes = 0;
+        const progress = WallpaperDownloadState.reset();
+        downloadPercentage = progress.percent;
+        downloadedBytes = progress.received;
+        downloadTotalBytes = progress.total;
         downloadCompleted = false;
         downloadCancelling = false;
     }
@@ -228,7 +233,7 @@ ContentSection {
         );
     }
     function refreshCacheBatch() {
-        if (batchProc.running) {
+        if ((cacheLoader.item !== null && cacheLoader.item.running)) {
             cacheBatchPending = true;
             return;
         }
@@ -253,17 +258,12 @@ ContentSection {
             return;
         }
         checkingCache = true;
-        batchProc.requestedProvider = provider;
-        batchProc.requestedIds = ids.join(",");
-        batchProc.command = [
-            "python3",
-            scriptPath,
-            "status-batch",
-            "--provider",
-            provider,
-            "--image-ids"
-        ].concat(ids);
-        batchProc.running = true;
+        if (cacheLoader.item === null) {
+            checkingCache = false;
+            console.warn("[WallpaperCache] Controlador indisponível.");
+            return;
+        }
+        cacheLoader.item.start(scriptPath, provider, ids);
     }
     function applySelected() {
         if (!canApply)
@@ -278,10 +278,11 @@ ContentSection {
         if (!item.url || !item.id || !item.provider)
             return;
         resetDownloadProgress();
+        downloadLifecycle = WallpaperDownloadLifecycle.start();
         hasError = false;
         feedback = "Iniciando download...";
-        downloadProc.requestedId = item.id;
-        downloadProc.command = [
+        downloadController.item.requestedId = item.id;
+        downloadController.item.start([
             "python3",
             scriptPath,
             "download",
@@ -292,60 +293,45 @@ ContentSection {
             "--image-id",
             item.id,
             "--progress"
-        ];
-        downloadProc.running = true;
+        ], item.id);
     }
     function cancelDownload() {
-        if (!downloadProc.running || downloadCancelling)
+        if (!(downloadController.item !== null && downloadController.item.running) || downloadCancelling)
             return;
         downloadCancelling = true;
+        downloadLifecycle = WallpaperDownloadLifecycle.cancel(downloadLifecycle);
         hasError = false;
         feedback = "Cancelando download...";
-        downloadProc.running = false;
+        downloadController.item.cancel();
     }
     function handleDownloadLine(line) {
-        const value = String(line || "").trim();
-        if (!value)
+        const parsed = WallpaperDownloadEvents.parseLine(line);
+        if (parsed.empty)
             return;
-        let data;
-        try {
-            data = JSON.parse(value);
-        } catch (error) {
+        if (!parsed.valid) {
             console.warn(
                 "[WallpaperBrowser] Invalid download event:",
-                value
+                parsed.raw
             );
             return;
         }
+        const data = parsed.data;
+        downloadLifecycle = WallpaperDownloadLifecycle.event(downloadLifecycle, data);
         if (downloadCancelling)
             return;
         if (data.event === "started") {
-            downloadTotalBytes = Math.max(
-                0,
-                Number(data.total) || 0
-            );
-            downloadPercentage = downloadTotalBytes > 0
-                ? 0
-                : -1;
+            const progress = WallpaperDownloadState.staticStarted(data);
+            downloadTotalBytes = progress.total;
+            downloadedBytes = progress.received;
+            downloadPercentage = progress.percent;
             feedback = "Baixando wallpaper...";
             return;
         }
         if (data.event === "progress") {
-            downloadedBytes = Math.max(
-                0,
-                Number(data.downloaded) || 0
-            );
-            downloadTotalBytes = Math.max(
-                0,
-                Number(data.total) || 0
-            );
-            downloadPercentage =
-                Number(data.percentage) >= 0
-                    ? Math.min(
-                        100,
-                        Number(data.percentage)
-                    )
-                    : -1;
+            const progress = WallpaperDownloadState.staticProgress(data);
+            downloadedBytes = progress.received;
+            downloadTotalBytes = progress.total;
+            downloadPercentage = progress.percent;
             feedback = "Baixando wallpaper...";
             return;
         }
@@ -356,7 +342,7 @@ ContentSection {
         if (data.ok === true && data.path) {
             downloadCompleted = true;
             updateCachedPath(
-                downloadProc.requestedId,
+                downloadController.item.requestedId,
                 String(data.path)
             );
             Wallpapers.apply(String(data.path));
@@ -440,100 +426,78 @@ ContentSection {
         if (details.length > 0)
             console.warn("[WallpaperBrowser] Search:", details);
     }
-    Process {
-        id: batchProc
-        running: false
-        property string requestedProvider: ""
-        property string requestedIds: ""
-        stdout: StdioCollector {
-            id: batchOutput
-        }
-        stderr: StdioCollector {
-            id: batchErrors
-        }
-        onExited: (exitCode, exitStatus) => {
-            const currentIds = root.results
-                .map(item => String(item.id || ""))
-                .filter(id => id.length > 0)
-                .filter((id, index, array) =>
-                    array.indexOf(id) === index)
-                .join(",");
-            if (
-                root.cacheBatchPending ||
-                requestedProvider !== root.provider ||
-                requestedIds !== currentIds
-            ) {
-                root.refreshCacheBatch();
-                return;
-            }
-            try {
-                const data = JSON.parse(
-                    batchOutput.text.trim()
-                );
-                if (exitCode !== 0 || data.ok !== true) {
-                    throw new Error(
-                        data.error ||
-                        "Falha na consulta de cache."
-                    );
-                }
-                const paths = {};
-                const items = data.items || {};
-                for (const id of Object.keys(items)) {
-                    if (items[id].cached && items[id].path)
-                        paths[id] = String(items[id].path);
-                }
-                root.cachedPaths = paths;
-                root.checkingCache = false;
-            } catch (error) {
-                root.checkingCache = false;
-                console.warn(
-                    "[WallpaperBrowser] Cache:",
-                    error.message,
-                    batchErrors.text
-                );
-            }
+    Loader {
+        id: cacheLoader
+        active: true
+        source: "WallpaperCacheController.qml"
+        onLoaded: {
+            item.completed.connect(root.cacheCompleted);
+            item.failed.connect(root.cacheFailed);
         }
     }
-    Process {
-        id: downloadProc
-        running: false
-        property string requestedId: ""
-        stdout: SplitParser {
-            onRead: data => root.handleDownloadLine(data)
+
+    function cacheIsStale(requestedProvider, requestedIds) {
+        const ids = results.map(item => String(item.id || ""))
+            .filter(id => id.length > 0)
+            .filter((id, i, arr) => arr.indexOf(id) === i).join(",");
+        return cacheBatchPending ||
+            requestedProvider !== provider || requestedIds !== ids;
+    }
+
+    function cacheCompleted(paths, requestedProvider, requestedIds) {
+        if (cacheIsStale(requestedProvider, requestedIds)) {
+            refreshCacheBatch();
+            return;
         }
-        stderr: StdioCollector {
-            id: downloadErrors
+        cachedPaths = paths;
+        checkingCache = false;
+    }
+
+    function cacheFailed(message, details, requestedProvider, requestedIds) {
+        if (cacheIsStale(requestedProvider, requestedIds)) {
+            refreshCacheBatch();
+            return;
         }
-        onExited: (exitCode, exitStatus) => {
-            if (root.downloadCancelling) {
-                root.downloadCancelling = false;
-                root.downloadPercentage = -1;
-                root.downloadedBytes = 0;
-                root.downloadTotalBytes = 0;
-                root.hasError = false;
-                root.feedback = "Download cancelado.";
-                return;
+        checkingCache = false;
+        console.warn("[WallpaperCache]", message, details);
+    }
+
+    Loader {
+        id: downloadController
+        active: true
+        source: "WallpaperDownloadController.qml"
+        onLoaded: {
+            item.lineReceived.connect(root.handleDownloadLine);
+            item.finished.connect(root.handleDownloadExited);
+        }
+    }
+    function handleDownloadExited(exitCode, details) {
+        const outcome = WallpaperDownloadLifecycle.terminal(
+            root.downloadLifecycle, exitCode, root.downloadCompleted, false
+        );
+        root.downloadLifecycle = outcome.state;
+        if (root.downloadCancelling) {
+            root.downloadCancelling = false;
+            root.downloadPercentage = -1;
+            root.downloadedBytes = 0;
+            root.downloadTotalBytes = 0;
+            root.hasError = false;
+            root.feedback = "Download cancelado.";
+            return;
+        }
+        if (outcome.succeeded) {
+            root.downloadCompleted = false;
+            return;
+        }
+        if (exitCode !== 0) {
+            root.hasError = true;
+            if (!root.feedback ||
+                root.feedback === "Baixando wallpaper..." ||
+                root.feedback === "Iniciando download...") {
+                root.feedback = "Falha no download. Consulte os logs.";
             }
-            if (root.downloadCompleted) {
-                root.downloadCompleted = false;
-                return;
-            }
-            if (exitCode !== 0) {
-                root.hasError = true;
-                if (!root.feedback ||
-                    root.feedback === "Baixando wallpaper..." ||
-                    root.feedback === "Iniciando download...") {
-                    root.feedback =
-                        "Falha no download. Consulte os logs.";
-                }
-                const details = downloadErrors.text.trim();
-                if (details.length > 0) {
-                    console.warn(
-                        "[WallpaperBrowser] Download:",
-                        details
-                    );
-                }
-            }
+            if (details.length > 0)
+                console.warn("[WallpaperBrowser] Download:", details);
         }
     }
     ColumnLayout {
@@ -768,7 +732,7 @@ ContentSection {
             Layout.fillWidth: true
             spacing: 7
             visible:
-                downloadProc.running ||
+                (downloadController.item !== null && downloadController.item.running) ||
                 root.downloadCancelling
             RowLayout {
                 Layout.fillWidth: true
@@ -819,7 +783,7 @@ ContentSection {
                     }
                     SequentialAnimation on x {
                         running:
-                            downloadProc.running &&
+                            (downloadController.item !== null && downloadController.item.running) &&
                             root.downloadPercentage < 0 &&
                             !root.downloadCancelling
                         loops: Animation.Infinite
@@ -935,10 +899,10 @@ ContentSection {
                 Item { Layout.fillWidth: true }
 
                 RippleButtonWithIcon {
-                    enabled: downloadProc.running
+                    enabled: (downloadController.item !== null && downloadController.item.running)
                         ? !root.downloadCancelling
                         : root.canApply
-                    materialIcon: downloadProc.running
+                    materialIcon: (downloadController.item !== null && downloadController.item.running)
                         ? "close"
                         : root.selectedIsActive
                             ? "check_circle"
@@ -947,7 +911,7 @@ ContentSection {
                                 : "download"
                     mainText: root.downloadCancelling
                         ? "Cancelando..."
-                        : downloadProc.running
+                        : (downloadController.item !== null && downloadController.item.running)
                             ? "Cancelar"
                             : root.checkingCache
                                 ? "Verificando..."
@@ -963,7 +927,7 @@ ContentSection {
                     colRipple:
                         Appearance.colors.colPrimaryContainerActive
                     onClicked: {
-                        if (downloadProc.running)
+                        if ((downloadController.item !== null && downloadController.item.running))
                             root.cancelDownload();
                         else
                             root.applySelected();

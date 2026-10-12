@@ -9,6 +9,9 @@ import "WallpaperUtils.js" as WallpaperUtils
 import "WallpaperPagination.js" as WallpaperPagination
 import "WallpaperCommands.js" as WallpaperCommands
 import "WallpaperResponses.js" as WallpaperResponses
+import "WallpaperDownloadEvents.js" as WallpaperDownloadEvents
+import "WallpaperDownloadState.js" as WallpaperDownloadState
+import "WallpaperDownloadLifecycle.js" as WallpaperDownloadLifecycle
 ContentSection {
     id: root
     title: "Explorar Live Wallpapers Online"
@@ -45,15 +48,16 @@ ContentSection {
     property real downloadTotal: 0
     property real downloadSpeed: 0
     property string downloadStage: ""
+    property string downloadLifecycle: WallpaperDownloadLifecycle.IDLE
     property var downloadResult: null
     property string downloadParseError: ""
     property bool cancelRequested: false
-    readonly property bool downloading: downloadProc.running
+    readonly property bool downloading: downloadController.item !== null && downloadController.item.running
     readonly property bool searching: searchControllerLoader.item !== null && searchControllerLoader.item.running
     readonly property bool busy:
         (providerControllerLoader.item !== null && providerControllerLoader.item.running) ||
         searching ||
-        downloadProc.running
+        downloading
     readonly property bool canApply:
         !busy &&
         !checkingCache &&
@@ -123,13 +127,13 @@ ContentSection {
             cachedPath = cachedPathFor(item);
             if (
                 !cacheBatchPending &&
-                !batchProc.running &&
+                !(cacheLoader.item !== null && cacheLoader.item.running) &&
                 cachedPath.length === 0
             ) {
                 checkSelectedCache();
             } else {
                 checkingCache =
-                    cacheBatchPending || batchProc.running;
+                    cacheBatchPending || (cacheLoader.item !== null && cacheLoader.item.running);
             }
         }
         feedback = "";
@@ -151,7 +155,7 @@ ContentSection {
         statusProc.running = true;
     }
     function refreshCacheBatch() {
-        if (batchProc.running) {
+        if ((cacheLoader.item !== null && cacheLoader.item.running)) {
             cacheBatchPending = true;
             return;
         }
@@ -175,17 +179,12 @@ ContentSection {
             checkingCache = false;
             return;
         }
-        batchProc.requestedProvider = provider;
-        batchProc.requestedIds = ids.join(",");
-        batchProc.command = [
-            "python3",
-            scriptPath,
-            "status-batch",
-            "--provider",
-            provider,
-            "--image-ids"
-        ].concat(ids);
-        batchProc.running = true;
+        if (cacheLoader.item === null) {
+            checkingCache = false;
+            console.warn("[WallpaperCache] Controlador indisponível.");
+            return;
+        }
+        cacheLoader.item.start(scriptPath, provider, ids);
     }
     function refreshProviders() {
         if (busy)
@@ -248,10 +247,11 @@ ContentSection {
         search(false);
     }
     function resetDownloadState() {
-        downloadPercent = -1;
-        downloadReceived = 0;
-        downloadTotal = 0;
-        downloadSpeed = 0;
+        const progress = WallpaperDownloadState.reset();
+        downloadPercent = progress.percent;
+        downloadReceived = progress.received;
+        downloadTotal = progress.total;
+        downloadSpeed = progress.speed;
         downloadStage = "";
         downloadResult = null;
         downloadParseError = "";
@@ -268,6 +268,7 @@ ContentSection {
         }
         const item = selectedWallpaper;
         resetDownloadState();
+        downloadLifecycle = WallpaperDownloadLifecycle.start();
         downloadStage = "Preparando download...";
         feedback = "Baixando " +
             (item.title || "wallpaper") +
@@ -275,7 +276,13 @@ ContentSection {
             providerName(item.provider) +
             "...";
         hasError = false;
-        downloadProc.command = [
+        if (downloadController.item === null) {
+            downloadStage = "";
+            hasError = true;
+            feedback = "Controlador de download indisponível.";
+            return;
+        }
+        downloadController.item.start([
             "python3",
             scriptPath,
             "download",
@@ -286,45 +293,38 @@ ContentSection {
             "--image-id",
             item.id,
             "--events"
-        ];
-        downloadProc.running = true;
+        ], item.id);
     }
     function cancelDownload() {
-        if (!downloadProc.running || cancelRequested)
+        if (!downloading || cancelRequested)
             return;
         cancelRequested = true;
+        downloadLifecycle = WallpaperDownloadLifecycle.cancel(downloadLifecycle);
         downloadStage = "Cancelando download...";
         feedback = "Interrompendo transferência...";
-        downloadProc.running = false;
+        downloadController.item.cancel();
     }
     function handleDownloadLine(line) {
-        const value = String(line).trim();
-        if (!value.length)
+        const parsed = WallpaperDownloadEvents.parseLine(line);
+        if (parsed.empty)
             return;
-        let data;
-        try {
-            data = JSON.parse(value);
-        } catch (error) {
+        if (!parsed.valid) {
             downloadParseError =
                 "Resposta de download inválida.";
             console.warn(
                 "[LiveWallpaperOnlineBrowser] JSON:",
-                value
+                parsed.raw
             );
             return;
         }
+        const data = parsed.data;
+        downloadLifecycle = WallpaperDownloadLifecycle.event(downloadLifecycle, data);
         if (data.event === "progress") {
-            downloadReceived = Number(data.received) || 0;
-            downloadTotal = Number(data.total) || 0;
-            downloadSpeed = Number(data.speed) || 0;
-            downloadPercent =
-                data.percent === null ||
-                data.percent === undefined
-                    ? -1
-                    : Math.max(
-                        0,
-                        Math.min(100, Number(data.percent))
-                    );
+            const progress = WallpaperDownloadState.liveProgress(data);
+            downloadReceived = progress.received;
+            downloadTotal = progress.total;
+            downloadSpeed = progress.speed;
+            downloadPercent = progress.percent;
             downloadStage = "Transferindo vídeo...";
             return;
         }
@@ -413,65 +413,44 @@ ContentSection {
         if (details.length > 0)
             console.warn("[LiveWallpaperOnlineBrowser] Search:", details);
     }
-    Process {
-        id: batchProc
-        running: false
-        property string requestedProvider: ""
-        property string requestedIds: ""
-        stdout: StdioCollector {
-            id: batchOutput
-        }
-        stderr: StdioCollector {
-            id: batchErrors
-        }
-        onExited: (exitCode, exitStatus) => {
-            const currentIds = root.results
-                .map(item => String(item.id || ""))
-                .filter(id => id.length > 0)
-                .filter((id, index, array) =>
-                    array.indexOf(id) === index)
-                .join(",");
-            if (
-                root.cacheBatchPending ||
-                requestedProvider !== root.provider ||
-                requestedIds !== currentIds
-            ) {
-                root.refreshCacheBatch();
-                return;
-            }
-            try {
-                const data = JSON.parse(
-                    batchOutput.text.trim()
-                );
-                if (exitCode !== 0 || data.ok !== true) {
-                    throw new Error(
-                        data.error ||
-                        "Falha na consulta em lote."
-                    );
-                }
-                const paths = {};
-                const items = data.items || {};
-                for (const id of Object.keys(items)) {
-                    if (items[id].cached && items[id].path)
-                        paths[id] = String(items[id].path);
-                }
-                root.cachedPaths = paths;
-                if (root.selectedWallpaper !== null) {
-                    root.cachedPath = root.cachedPathFor(
-                        root.selectedWallpaper
-                    );
-                }
-                root.checkingCache = false;
-            } catch (error) {
-                console.warn(
-                    "[LiveWallpaperOnlineBrowser] Cache em lote:",
-                    error.message,
-                    batchErrors.text
-                );
-                root.checkingCache = false;
-            }
+    Loader {
+        id: cacheLoader
+        active: true
+        source: "WallpaperCacheController.qml"
+        onLoaded: {
+            item.completed.connect(root.cacheCompleted);
+            item.failed.connect(root.cacheFailed);
         }
     }
+
+    function cacheIsStale(requestedProvider, requestedIds) {
+        const ids = results.map(item => String(item.id || ""))
+            .filter(id => id.length > 0)
+            .filter((id, i, arr) => arr.indexOf(id) === i).join(",");
+        return cacheBatchPending ||
+            requestedProvider !== provider || requestedIds !== ids;
+    }
+
+    function cacheCompleted(paths, requestedProvider, requestedIds) {
+        if (cacheIsStale(requestedProvider, requestedIds)) {
+            refreshCacheBatch();
+            return;
+        }
+        cachedPaths = paths;
+        if (selectedWallpaper !== null)
+            cachedPath = cachedPathFor(selectedWallpaper);
+        checkingCache = false;
+    }
+
+    function cacheFailed(message, details, requestedProvider, requestedIds) {
+        if (cacheIsStale(requestedProvider, requestedIds)) {
+            refreshCacheBatch();
+            return;
+        }
+        checkingCache = false;
+        console.warn("[WallpaperCache]", message, details);
+    }
+
     Process {
         id: statusProc
         running: false
@@ -531,58 +510,79 @@ ContentSection {
         repeat: false
         onTriggered: root.checkSelectedCache()
     }
-    Process {
-        id: downloadProc
-        running: false
-        stdout: SplitParser {
-            onRead: line => root.handleDownloadLine(line)
+    Loader {
+        id: downloadController
+        active: true
+        source: "WallpaperDownloadController.qml"
+        onLoaded: {
+            item.lineReceived.connect(root.handleDownloadLine);
+            item.finished.connect(root.handleDownloadExited);
         }
-        stderr: StdioCollector {
-            id: downloadErrors
+    }
+    function downloadFailureMessage(message) {
+        const raw = String(message || "").trim();
+        if (/\b(?:HTTP\s*(?:Error\s*)?)?500\b|Internal Server Error/i.test(raw)) {
+            return "O servidor não conseguiu disponibilizar este wallpaper (HTTP 500). " +
+                "Tente novamente mais tarde ou escolha outro wallpaper.";
         }
-        onExited: (exitCode, exitStatus) => {
-            if (root.cancelRequested) {
-                root.downloadStage = "";
-                root.feedback = "Download cancelado.";
-                root.hasError = false;
-                root.cancelRequested = false;
-                return;
-            }
-            const data = root.downloadResult;
-            if (
-                exitCode === 0 &&
-                data !== null &&
-                data.ok === true &&
-                data.path
-            ) {
-                const path = String(data.path);
-                if (root.selectedWallpaper !== null) {
-                    root.updateCachedPath(
-                        root.selectedWallpaper.id,
-                        path
-                    );
-                }
-                root.downloadStage = "";
-                root.hasError = false;
-                Wallpapers.apply(path);
-                root.feedback = data.cached === true
-                    ? "Wallpaper do cache enviado para aplicação."
-                    : "Wallpaper baixado e enviado para aplicação.";
-                return;
-            }
-            root.hasError = true;
+        if (/\b(?:HTTP\s*(?:Error\s*)?)?404\b|Not Found/i.test(raw)) {
+            return "O arquivo deste wallpaper não foi encontrado no servidor (HTTP 404).";
+        }
+        if (/\b(?:HTTP\s*(?:Error\s*)?)?410\b|Gone/i.test(raw)) {
+            return "O arquivo deste wallpaper não está mais disponível no servidor (HTTP 410).";
+        }
+        if (/\b(?:HTTP\s*(?:Error\s*)?)?429\b|Too Many Requests/i.test(raw)) {
+            return "O servidor limitou temporariamente os downloads (HTTP 429). " +
+                "Aguarde antes de tentar novamente.";
+        }
+        return raw.length > 0
+            ? "Erro no download: " + raw
+            : "O processo terminou sem concluir o download.";
+    }
+    function handleDownloadExited(exitCode, details) {
+        const outcome = WallpaperDownloadLifecycle.terminal(
+            root.downloadLifecycle,
+            exitCode,
+            root.downloadResult !== null &&
+                root.downloadResult.ok === true &&
+                Boolean(root.downloadResult.path),
+            true
+        );
+        root.downloadLifecycle = outcome.state;
+        if (root.cancelRequested) {
             root.downloadStage = "";
-            root.feedback = "Erro no download: " +
-                (
-                    data && data.error
-                        ? data.error
-                        : root.downloadParseError.length > 0
-                            ? root.downloadParseError
-                            : downloadErrors.text.trim().length > 0
-                                ? downloadErrors.text.trim()
-                                : "O processo terminou sem concluir o download."
-                );
+            root.feedback = "Download cancelado.";
+            root.hasError = false;
+            root.cancelRequested = false;
+            return;
         }
+        const data = root.downloadResult;
+        if (outcome.succeeded) {
+            const path = String(data.path);
+            if (root.selectedWallpaper !== null) {
+                root.updateCachedPath(
+                    root.selectedWallpaper.id,
+                    path
+                );
+            }
+            root.downloadStage = "";
+            root.hasError = false;
+            Wallpapers.apply(path);
+            root.feedback = data.cached === true
+                ? "Wallpaper do cache enviado para aplicação."
+                : "Wallpaper baixado e enviado para aplicação.";
+            return;
+        }
+        root.hasError = true;
+        root.downloadStage = "";
+        const errorText = data && data.error
+            ? String(data.error)
+            : details.length > 0
+                ? details
+                : root.downloadParseError;
+        root.feedback = root.downloadFailureMessage(errorText);
+        if (errorText.length > 0)
+            console.warn("[LiveWallpaperOnlineBrowser] Download:", errorText);
     }
     ColumnLayout {
         Layout.fillWidth: true
