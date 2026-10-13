@@ -8,7 +8,7 @@ import tempfile
 import zipfile
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit, quote
 from urllib.request import Request, urlopen
 
 DESTINATION = Path.home() / "Pictures/Wallpapers/Live"
@@ -47,13 +47,25 @@ def validate_url(url, hosts):
 
 
 def open_remote(url, hosts, accept="*/*"):
+    # Preserve URL separators and existing percent-encoded sequences while
+    # escaping spaces, Unicode and other unsafe characters in path/query.
     validate_url(url, hosts)
+    parts = urlsplit(url)
+    safe_url = urlunsplit((
+        parts.scheme,
+        parts.netloc,
+        quote(parts.path, safe="/%:@!$&'()*+,;=-._~"),
+        quote(parts.query, safe="/%?:@!$&'()*+,;=-._~"),
+        parts.fragment,
+    ))
+    validate_url(safe_url, hosts)
 
     request = Request(
-        url,
+        safe_url,
         headers={
             "User-Agent": "Mozilla/5.0 VestaShell/0.2",
             "Accept": accept,
+            "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
         },
     )
 
