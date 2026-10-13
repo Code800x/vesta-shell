@@ -6,6 +6,7 @@ import argparse
 import json
 import re
 import sys
+import traceback
 from pathlib import Path
 
 WALLPAPER_ROOT = Path(__file__).resolve().parent.parent
@@ -275,6 +276,11 @@ def main():
         EOFError,
     ) as error:
         emit(ok=False, error=str(error))
+        sys.exit(1)
+    except Exception as error:
+        # O QML recebe somente JSON; traceback completo fica no stderr.
+        traceback.print_exc(file=sys.stderr)
+        emit(ok=False, error="Falha inesperada no serviço de wallpapers.")
         sys.exit(1)
 
 
