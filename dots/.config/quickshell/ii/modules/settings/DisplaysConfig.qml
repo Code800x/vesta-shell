@@ -1,4 +1,4 @@
-
+import "utils/SettingsMessages.js" as SettingsMessages
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
@@ -694,7 +694,7 @@ ContentPage {
     function transformOptions() {
         return [
             {
-                displayName: "Normal (0°)",
+                displayName: Translation.tr("Normal (0°)"),
                 icon: "crop_landscape",
                 value: "0"
             },
@@ -794,9 +794,7 @@ ContentPage {
 
         if (!targets) {
             resetChanges();
-            localError = Translation.tr(
-                "Could not find a supported display mode."
-            );
+            localError = "Could not find a supported display mode.";
             return;
         }
 
@@ -1024,7 +1022,7 @@ ContentPage {
 
         ContentSubsection {
             StyledText {
-                text: root.localError
+                text: SettingsMessages.translate(root.localError, Translation.tr)
                 wrapMode: Text.WordWrap
             }
         }

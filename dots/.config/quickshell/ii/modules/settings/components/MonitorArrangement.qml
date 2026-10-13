@@ -1,5 +1,6 @@
-
+import "../utils/SettingsMessages.js" as SettingsMessages
 import QtQuick
+import qs.services
 import QtQuick.Layouts
 import qs.modules.common
 import qs.modules.common.widgets
@@ -621,12 +622,12 @@ Item {
                             font.weight: Font.Medium
                             color: parent.detailColor
 
-                            text: monitorItem.monitorData
+                            text: SettingsMessages.translate(monitorItem.monitorData
                                 ? "Escala: "
                                     + Number(
                                         monitorItem.monitorData.scale
                                     ).toFixed(2)
-                                : ""
+                                : "", Translation.tr)
                         }
                     }
                 }
@@ -786,7 +787,7 @@ Item {
     StyledText {
         anchors.centerIn: parent
         visible: root.monitors.length === 0
-        text: "Nenhum monitor conectado"
+        text: Translation.tr("No monitors connected")
         color: Appearance.m3colors.m3outline
     }
 }

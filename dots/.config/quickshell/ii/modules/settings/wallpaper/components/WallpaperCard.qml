@@ -1,4 +1,6 @@
+import "../../utils/SettingsMessages.js" as SettingsMessages
 import QtQuick
+import qs.services
 import QtQuick.Effects
 import qs.modules.common
 import qs.modules.common.widgets
@@ -122,7 +124,7 @@ Item {
                         : Appearance.colors.colOnPrimaryContainer
                 }
                 StyledText {
-                    text: root.active ? "Em uso" : "Já baixado"
+                    text: SettingsMessages.translate(root.active ? "Em uso" : "Já baixado", Translation.tr)
                     color: root.active
                         ? Appearance.colors.colOnPrimary
                         : Appearance.colors.colOnPrimaryContainer

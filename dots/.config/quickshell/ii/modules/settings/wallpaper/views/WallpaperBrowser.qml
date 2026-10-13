@@ -1,3 +1,4 @@
+import "../../utils/SettingsMessages.js" as SettingsMessages
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -66,20 +67,20 @@ ContentSection {
         selectedWallpaper !== null &&
         !selectedIsActive
     readonly property var categories: [
-        { name: "Todas", code: "111" },
-        { name: "Geral", code: "100" },
+        { name: Translation.tr("All"), code: "111" },
+        { name: Translation.tr("General"), code: "100" },
         { name: "Anime", code: "010" },
-        { name: "Pessoas", code: "001" }
+        { name: Translation.tr("People"), code: "001" }
     ]
     readonly property var sortOptions: [
-        { name: "Recentes", code: "date_added" },
-        { name: "Relevância", code: "relevance" },
-        { name: "Populares", code: "views" },
-        { name: "Favoritos", code: "favorites" },
-        { name: "Aleatórios", code: "random" }
+        { name: Translation.tr("Latest"), code: "date_added" },
+        { name: Translation.tr("Relevance"), code: "relevance" },
+        { name: Translation.tr("Popular"), code: "views" },
+        { name: Translation.tr("Favorites"), code: "favorites" },
+        { name: Translation.tr("Random"), code: "random" }
     ]
     readonly property var resolutions: [
-        { name: "Qualquer resolução", code: "" },
+        { name: Translation.tr("Any resolution"), code: "" },
         { name: "1920 × 1080+", code: "1920x1080" },
         { name: "2560 × 1440+", code: "2560x1440" },
         { name: "3840 × 2160+", code: "3840x2160" }
@@ -87,7 +88,7 @@ ContentSection {
     readonly property var purityOptions: [
         { name: "SFW", code: "100" },
         { name: "SFW + Sketchy", code: "110" },
-        { name: "Todos (NSFW)", code: "111" }
+        { name: Translation.tr("All (NSFW)"), code: "111" }
     ]
     function normalizedPath(path) {
         return WallpaperUtils.normalizedPath(path);
@@ -539,7 +540,7 @@ ContentSection {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 100
                 Layout.preferredHeight: 48
-                placeholderText: "Pesquisar wallpapers..."
+                placeholderText: Translation.tr("Search wallpapers...")
                 onAccepted: root.search(true)
             }
             Loader {
@@ -629,7 +630,7 @@ ContentSection {
                     color: Appearance.colors.colOnSurface
                 }
                 StyledText {
-                    text: "Conteúdo"
+                    text: Translation.tr("Content")
                     color: Appearance.colors.colOnSurface
                     font.pixelSize: Appearance.font.pixelSize.small
                 }
@@ -700,9 +701,7 @@ ContentSection {
             visible:
                 root.providersLoaded &&
                 root.provider !== "wallhaven"
-            text:
-                "Konachan e Yande.re são especializados em anime. " +
-                "O filtro de categoria geral não se aplica a essas fontes."
+            text: Translation.tr("Konachan and Yande.re specialize in anime. The general category filter does not apply to these sources.")
             wrapMode: Text.WordWrap
             color: Appearance.colors.colOnSurfaceVariant
             font.pixelSize: Appearance.font.pixelSize.smaller
@@ -728,7 +727,7 @@ ContentSection {
             }
             StyledText {
                 Layout.fillWidth: true
-                text: root.feedback
+                text: SettingsMessages.translate(root.feedback, Translation.tr)
                 wrapMode: Text.Wrap
                 color: root.hasError
                     ? Appearance.colors.colError
@@ -789,9 +788,9 @@ ContentSection {
                 }
                 StyledText {
                     Layout.fillWidth: true
-                    text: root.downloadCancelling
+                    text: SettingsMessages.translate(root.downloadCancelling
                         ? "Cancelando transferência..."
-                        : root.progressDescription()
+                        : root.progressDescription(), Translation.tr)
                     color: Appearance.colors.colOnSurface
                     font.pixelSize:
                         Appearance.font.pixelSize.small
@@ -866,7 +865,7 @@ ContentSection {
                 RippleButtonWithIcon {
                     enabled: !root.busy && root.page > 1
                     materialIcon: "chevron_left"
-                    mainText: "Anterior"
+                    mainText: Translation.tr("Previous")
                     buttonRadius: Appearance.rounding.small
                     onClicked: root.changePage(root.page - 1)
                 }
@@ -932,7 +931,7 @@ ContentSection {
                 RippleButtonWithIcon {
                     enabled: !root.busy && root.page < root.lastPage
                     materialIcon: "chevron_right"
-                    mainText: "Próxima"
+                    mainText: Translation.tr("Next")
                     buttonRadius: Appearance.rounding.small
                     onClicked: root.changePage(root.page + 1)
                 }
@@ -954,7 +953,7 @@ ContentSection {
                             : root.selectedCachedPath.length > 0
                                 ? "wallpaper"
                                 : "download"
-                    mainText: root.downloadCancelling
+                    mainText: SettingsMessages.translate(root.downloadCancelling
                         ? "Cancelando..."
                         : (downloadController.item !== null && downloadController.item.running)
                             ? "Cancelar"
@@ -964,7 +963,7 @@ ContentSection {
                                     ? "Em uso"
                                     : root.selectedCachedPath.length > 0
                                         ? "Aplicar"
-                                        : "Baixar e aplicar"
+                                        : "Baixar e aplicar", Translation.tr)
                     buttonRadius: Appearance.rounding.small
                     colBackground: Appearance.colors.colPrimaryContainer
                     colBackgroundHover:

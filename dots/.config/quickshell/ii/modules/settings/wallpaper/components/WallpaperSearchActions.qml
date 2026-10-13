@@ -1,4 +1,6 @@
+import "../../utils/SettingsMessages.js" as SettingsMessages
 import QtQuick
+import qs.services
 import QtQuick.Layouts
 import qs.modules.common
 import qs.modules.common.widgets
@@ -15,7 +17,7 @@ RowLayout {
         Layout.preferredHeight: 48
         enabled: root.canSearch
         materialIcon: "search"
-        mainText: "Pesquisar"
+        mainText: Translation.tr("Search")
         buttonRadius: Appearance.rounding.small
         onClicked: root.searchRequested()
     }
@@ -23,7 +25,7 @@ RowLayout {
         Layout.preferredHeight: 48
         enabled: root.canSearch && root.hasQuery
         materialIcon: "close"
-        mainText: "Limpar"
+        mainText: Translation.tr("Clear")
         buttonRadius: Appearance.rounding.small
         onClicked: root.clearRequested()
     }

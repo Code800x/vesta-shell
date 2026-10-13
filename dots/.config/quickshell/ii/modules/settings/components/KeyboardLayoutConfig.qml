@@ -1,5 +1,6 @@
-
+import "../utils/SettingsMessages.js" as SettingsMessages
 import QtQuick
+import qs.services
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
@@ -28,49 +29,49 @@ ContentSubsection {
             .replace(/^file:\/\//, "")
 
     readonly property var layouts: [
-        { name: "Português (Brasil)", code: "br" },
-        { name: "English (US)", code: "us" },
-        { name: "Português (Portugal)", code: "pt" },
-        { name: "Español", code: "es" },
-        { name: "English (UK)", code: "gb" },
-        { name: "Deutsch", code: "de" },
-        { name: "Français", code: "fr" },
-        { name: "Italiano", code: "it" }
+        { name: Translation.tr("Portuguese (Brazil)"), code: "br" },
+        { name: Translation.tr("English (US)"), code: "us" },
+        { name: Translation.tr("Portuguese (Portugal)"), code: "pt" },
+        { name: Translation.tr("Spanish"), code: "es" },
+        { name: Translation.tr("English (UK)"), code: "gb" },
+        { name: Translation.tr("German"), code: "de" },
+        { name: Translation.tr("French"), code: "fr" },
+        { name: Translation.tr("Italian"), code: "it" }
     ]
 
     readonly property var variants: ({
         "br": [
-            { name: "Padrão", code: "" },
+            { name: Translation.tr("Default"), code: "" },
             { name: "ABNT2", code: "abnt2" },
-            { name: "Sem teclas mortas", code: "nodeadkeys" }
+            { name: Translation.tr("No dead keys"), code: "nodeadkeys" }
         ],
         "us": [
-            { name: "Padrão", code: "" },
-            { name: "Internacional", code: "intl" },
-            { name: "Internacional (AltGr)", code: "altgr-intl" }
+            { name: Translation.tr("Default"), code: "" },
+            { name: Translation.tr("International"), code: "intl" },
+            { name: Translation.tr("International (AltGr)"), code: "altgr-intl" }
         ],
         "pt": [
-            { name: "Padrão", code: "" },
-            { name: "Sem teclas mortas", code: "nodeadkeys" }
+            { name: Translation.tr("Default"), code: "" },
+            { name: Translation.tr("No dead keys"), code: "nodeadkeys" }
         ],
         "es": [
-            { name: "Padrão", code: "" },
-            { name: "Sem teclas mortas", code: "nodeadkeys" }
+            { name: Translation.tr("Default"), code: "" },
+            { name: Translation.tr("No dead keys"), code: "nodeadkeys" }
         ],
         "gb": [
-            { name: "Padrão", code: "" },
-            { name: "Internacional", code: "intl" }
+            { name: Translation.tr("Default"), code: "" },
+            { name: Translation.tr("International"), code: "intl" }
         ],
         "de": [
-            { name: "Padrão", code: "" },
-            { name: "Sem teclas mortas", code: "nodeadkeys" }
+            { name: Translation.tr("Default"), code: "" },
+            { name: Translation.tr("No dead keys"), code: "nodeadkeys" }
         ],
         "fr": [
-            { name: "Padrão", code: "" },
-            { name: "Alternativo", code: "oss" }
+            { name: Translation.tr("Default"), code: "" },
+            { name: Translation.tr("Alternative"), code: "oss" }
         ],
         "it": [
-            { name: "Padrão", code: "" }
+            { name: Translation.tr("Default"), code: "" }
         ]
     })
 
@@ -172,7 +173,7 @@ ContentSubsection {
                 spacing: 6
 
                 Text {
-                    text: "Layout do teclado"
+                    text: Translation.tr("Keyboard layout")
                     color: Appearance.colors.colOnSurfaceVariant
                     font.pixelSize: 13
                 }
@@ -215,7 +216,7 @@ ContentSubsection {
                 spacing: 6
 
                 Text {
-                    text: "Variante"
+                    text: Translation.tr("Variant")
                     color: Appearance.colors.colOnSurfaceVariant
                     font.pixelSize: 13
                 }
@@ -254,9 +255,9 @@ ContentSubsection {
             RippleButtonWithIcon {
                 nerdIcon: "󰌌"
 
-                mainText: root.busy
+                mainText: SettingsMessages.translate(root.busy
                     ? "Aplicando..."
-                    : "Aplicar layout do teclado"
+                    : "Aplicar layout do teclado", Translation.tr)
 
                 enabled: !root.busy && root.initialized
 
@@ -269,7 +270,7 @@ ContentSubsection {
 
             Text {
                 Layout.fillWidth: true
-                text: root.feedback
+                text: SettingsMessages.translate(root.feedback, Translation.tr)
                 wrapMode: Text.WordWrap
                 font.pixelSize: 12
 

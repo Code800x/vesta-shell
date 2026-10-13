@@ -1,5 +1,4 @@
-
-
+import "../../utils/SettingsMessages.js" as SettingsMessages
 import QtQuick
 
 import QtQuick.Layouts
@@ -29,7 +28,7 @@ ContentSection {
 
 
 
-    title: "Live Wallpapers"
+    title: Translation.tr("Live wallpapers")
 
     icon: "animated_images"
 
@@ -181,11 +180,7 @@ ContentSection {
 
         root.feedback =
 
-            "Vídeo enviado ao gerenciador de wallpapers. " +
-
-            "A reprodução e a geração de cores serão " +
-
-            "realizadas pelo switchwall.sh.";
+            "Vídeo enviado ao gerenciador de wallpapers. A reprodução e a geração de cores serão realizadas pelo switchwall.sh.";
 
     }
 
@@ -197,7 +192,7 @@ ContentSection {
 
         id: directoryPicker
 
-        title: "Selecionar pasta de vídeos"
+        title: Translation.tr("Select video folder")
 
         currentFolder: root.folderUrl
 
@@ -271,13 +266,7 @@ ContentSection {
 
 
 
-            text:
-
-                "Escolha um vídeo local para usar como papel " +
-
-                "de parede animado. Os vídeos serão reproduzidos " +
-
-                "em loop, sem áudio, pelo mpvpaper."
+            text: Translation.tr("Choose a local video to use as a live wallpaper. Videos will loop without audio using mpvpaper.")
 
 
 
@@ -321,9 +310,7 @@ ContentSection {
 
 
 
-                placeholderText:
-
-                    "Diretório dos vídeos"
+                placeholderText: Translation.tr("Video directory")
 
 
 
@@ -349,7 +336,7 @@ ContentSection {
 
                 materialIcon: "folder_open"
 
-                mainText: "Abrir"
+                mainText: Translation.tr("Open")
 
 
 
@@ -393,15 +380,13 @@ ContentSection {
 
             StyledText {
 
-                text:
-
-                    folderModel.count +
+                text: SettingsMessages.translate(folderModel.count +
 
                     (folderModel.count === 1
 
                         ? " vídeo encontrado"
 
-                        : " vídeos encontrados")
+                        : " vídeos encontrados"), Translation.tr)
 
 
 
@@ -749,9 +734,7 @@ ContentSection {
 
 
 
-                text:
-
-                    "Nenhum vídeo MP4 ou WebM encontrado."
+                text: Translation.tr("No MP4 or WebM videos found.")
 
 
 
@@ -795,13 +778,11 @@ ContentSection {
 
 
 
-                    text:
-
-                        root.selectedName.length > 0
+                    text: SettingsMessages.translate(root.selectedName.length > 0
 
                             ? root.selectedName
 
-                            : "Nenhum vídeo selecionado"
+                            : "Nenhum vídeo selecionado", Translation.tr)
 
 
 
@@ -829,9 +810,7 @@ ContentSection {
 
 
 
-                    text:
-
-                        "Reprodução em loop · Sem áudio"
+                    text: Translation.tr("Loop playback · No audio")
 
 
 
@@ -861,7 +840,7 @@ ContentSection {
 
                 materialIcon: "play_arrow"
 
-                mainText: "Aplicar vídeo"
+                mainText: Translation.tr("Apply video")
 
 
 
@@ -941,7 +920,7 @@ ContentSection {
 
 
 
-                text: root.feedback
+                text: SettingsMessages.translate(root.feedback, Translation.tr)
 
 
 

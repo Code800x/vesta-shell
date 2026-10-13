@@ -1,3 +1,4 @@
+import "../../utils/SettingsMessages.js" as SettingsMessages
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
@@ -10,7 +11,7 @@ import qs.services
 ContentSection {
     id: root
     Layout.fillWidth: true
-    title: "Meus Wallpapers"
+    title: Translation.tr("My wallpapers")
     icon: "folder_open"
 
     property var images: []
@@ -22,7 +23,7 @@ ContentSection {
     property bool generatingThumbnails: false
     property int missingThumbnails: 0
     property int currentPage: 0
-    readonly property var pageTitles: ["Wallpapers estáticos", "Live Wallpapers", "Carregar vídeo"]
+    readonly property var pageTitles: [Translation.tr("Static wallpapers"), Translation.tr("Live wallpapers"), Translation.tr("Load video")]
     readonly property string libraryDirectory: FileUtils.trimFileProtocol(Directories.pictures) + "/Wallpapers"
     readonly property string scannerPath: FileUtils.trimFileProtocol(Qt.resolvedUrl("../../../../scripts/wallpaper/local_library.py").toString())
 
@@ -90,7 +91,7 @@ ContentSection {
 
             RippleButtonWithIcon {
                 materialIcon: "chevron_left"
-                mainText: "Anterior"
+                mainText: Translation.tr("Previous")
                 enabled: root.currentPage > 0
                 onClicked: root.currentPage = Math.max(0, root.currentPage - 1)
             }
@@ -107,7 +108,7 @@ ContentSection {
             Item { Layout.fillWidth: true }
             RippleButtonWithIcon {
                 materialIcon: "chevron_right"
-                mainText: "Próxima"
+                mainText: Translation.tr("Next")
                 enabled: root.currentPage < 2
                 onClicked: root.currentPage = Math.min(2, root.currentPage + 1)
             }
@@ -145,7 +146,7 @@ ContentSection {
 
         StyledText {
             Layout.fillWidth: true
-            text: "Biblioteca: " + root.libraryDirectory
+            text: SettingsMessages.translate("Biblioteca: " + root.libraryDirectory, Translation.tr)
             visible: root.currentPage !== 2
             elide: Text.ElideMiddle
             color: Appearance.colors.colOnSurfaceVariant
@@ -155,7 +156,7 @@ ContentSection {
         StyledText {
             Layout.fillWidth: true
             visible: root.feedback.length > 0
-            text: root.feedback
+            text: SettingsMessages.translate(root.feedback, Translation.tr)
             wrapMode: Text.WordWrap
             color: Appearance.colors.colOnSurfaceVariant
         }
@@ -175,15 +176,15 @@ ContentSection {
                 RowLayout {
                     Layout.fillWidth: true
                     MaterialSymbol { text: "image"; iconSize: 22 }
-                    StyledText { text: "Wallpapers estáticos" }
+                    StyledText { text: Translation.tr("Static wallpapers")}
                     Item { Layout.fillWidth: true }
                     StyledText {
-                        text: root.images.length + " imagens"
+                        text: SettingsMessages.translate(root.images.length + " imagens", Translation.tr)
                         color: Appearance.colors.colOnSurfaceVariant
                     }
                     RippleButtonWithIcon {
                         materialIcon: "refresh"
-                        mainText: "Atualizar"
+                        mainText: Translation.tr("Refresh")
                         enabled: !root.scanning
                         onClicked: root.refresh()
                     }
@@ -242,7 +243,7 @@ ContentSection {
             }
                 StyledText {
                     visible: !root.scanning && root.images.length === 0
-                    text: "Nenhuma imagem encontrada na biblioteca."
+                    text: Translation.tr("No images found in the library.")
                     color: Appearance.colors.colOnSurfaceVariant
                 }
             }
@@ -254,15 +255,15 @@ ContentSection {
                 RowLayout {
                     Layout.fillWidth: true
                     MaterialSymbol { text: "animated_images"; iconSize: 22 }
-                    StyledText { text: "Live Wallpapers" }
+                    StyledText { text: Translation.tr("Live wallpapers")}
                     Item { Layout.fillWidth: true }
                     StyledText {
-                        text: root.videos.length + " vídeos"
+                        text: SettingsMessages.translate(root.videos.length + " vídeos", Translation.tr)
                         color: Appearance.colors.colOnSurfaceVariant
                     }
                     RippleButtonWithIcon {
                         materialIcon: "refresh"
-                        mainText: "Atualizar"
+                        mainText: Translation.tr("Refresh")
                         enabled: !root.scanning
                         onClicked: root.refresh()
                     }
@@ -321,7 +322,7 @@ ContentSection {
             }
                 StyledText {
                     visible: !root.scanning && root.videos.length === 0
-                    text: "Nenhum vídeo encontrado na biblioteca."
+                    text: Translation.tr("No videos found in the library.")
                     color: Appearance.colors.colOnSurfaceVariant
                 }
             }

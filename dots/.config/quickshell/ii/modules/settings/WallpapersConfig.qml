@@ -1,5 +1,6 @@
-
+import "utils/SettingsMessages.js" as SettingsMessages
 import QtQuick
+import qs.services
 import QtQuick.Layouts
 
 import qs.modules.common
@@ -21,15 +22,12 @@ ContentPage {
         Layout.fillWidth: true
 
         icon: "wallpaper"
-        title: "Gerenciador de Wallpapers"
+        title: Translation.tr("Wallpaper manager")
 
         StyledText {
             Layout.fillWidth: true
 
-            text:
-                "Explore, selecione e aplique papéis de " +
-                "parede estáticos ou animados diretamente " +
-                "pelo Vesta Shell."
+            text: Translation.tr("Browse, select and apply static or live wallpapers directly from Vesta Shell.")
 
             wrapMode: Text.WordWrap
 
@@ -46,15 +44,15 @@ ContentPage {
             Repeater {
                 model: [
                     {
-                        title: "Wallpapers normais",
+                        title: Translation.tr("Static wallpapers"),
                         icon: "image"
                     },
                     {
-                        title: "Live Wallpapers",
+                        title: Translation.tr("Live wallpapers"),
                         icon: "animated_images"
                     },
                     {
-                        title: "Meus Wallpapers",
+                        title: Translation.tr("My wallpapers"),
                         icon: "folder_open"
                     }
                 ]

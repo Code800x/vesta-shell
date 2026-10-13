@@ -1,3 +1,4 @@
+import "../../utils/SettingsMessages.js" as SettingsMessages
 import QtQuick
 
 import QtQuick.Layouts
@@ -30,7 +31,7 @@ ContentSection {
 
     id: root
 
-    title: "Explorar Live Wallpapers Online"
+    title: Translation.tr("Explore live wallpapers online")
 
     icon: "travel_explore"
 
@@ -54,7 +55,7 @@ ContentSection {
 
     property string resolution: ""
     readonly property var resolutions: [
-        { name: "Qualquer resolução", code: "" },
+        { name: Translation.tr("Any resolution"), code: "" },
         { name: "1920 × 1080+", code: "1920x1080" },
         { name: "2560 × 1440+", code: "2560x1440" },
         { name: "3840 × 2160+", code: "3840x2160" }
@@ -1176,13 +1177,7 @@ ContentSection {
 
             wrapMode: Text.WordWrap
 
-            text:
-
-                "Explore wallpapers animados no DesktopHut, " +
-
-                "MotionBGS e MoeWalls. Selecione um vídeo " +
-
-                "para baixar e aplicar como plano de fundo."
+            text: Translation.tr("Browse live wallpapers on DesktopHut, MotionBGS and MoeWalls. Select a video to download and use as your wallpaper.")
 
             color: Appearance.colors.colOnSurfaceVariant
 
@@ -1202,7 +1197,7 @@ ContentSection {
             }
 
             StyledText {
-                text: "Resolução"
+                text: Translation.tr("Resolution")
                 color: Appearance.colors.colOnSurface
                 font.pixelSize: Appearance.font.pixelSize.small
             }
@@ -1238,8 +1233,7 @@ ContentSection {
         StyledText {
             Layout.fillWidth: true
             visible: root.resolution !== ""
-            text: "O filtro usa a resolução original anunciada pelo provedor. " +
-                  "Vídeos sem resolução informada não aparecem no filtro."
+            text: Translation.tr("The filter uses the original resolution advertised by the provider. Videos without resolution information are excluded from the filter.")
             wrapMode: Text.WordWrap
             color: Appearance.colors.colOnSurfaceVariant
             font.pixelSize: Appearance.font.pixelSize.smaller
@@ -1317,9 +1311,7 @@ ContentSection {
 
                 enabled: !root.busy
 
-                placeholderText:
-
-                    "Pesquisar wallpapers animados..."
+                placeholderText: Translation.tr("Search live wallpapers...")
 
                 onAccepted: root.search(true)
 
@@ -1369,15 +1361,13 @@ ContentSection {
 
             StyledText {
 
-                text:
-
-                    root.results.length +
+                text: SettingsMessages.translate(root.results.length +
 
                     (root.results.length === 1
 
                         ? " wallpaper"
 
-                        : " wallpapers")
+                        : " wallpapers"), Translation.tr)
 
                 color: Appearance.colors.colOnSurfaceVariant
 
@@ -1429,7 +1419,7 @@ ContentSection {
 
                 Layout.fillWidth: true
 
-                text: root.feedback.length > 0
+                text: SettingsMessages.translate(root.feedback.length > 0
 
                     ? root.feedback
 
@@ -1437,7 +1427,7 @@ ContentSection {
 
                         ? "Processando..."
 
-                        : ""
+                        : "", Translation.tr)
 
                 wrapMode: Text.WordWrap
 
@@ -1543,11 +1533,11 @@ ContentSection {
 
                 MaterialSymbol {
 
-                    text: root.downloadStage === "Extraindo vídeo..."
+                    text: (root.downloadStage === "Extraindo vídeo..."
 
                         ? "inventory_2"
 
-                        : "downloading"
+                        : "downloading")
 
                     iconSize: 20
 
@@ -1559,7 +1549,7 @@ ContentSection {
 
                     Layout.fillWidth: true
 
-                    text: root.downloadStage
+                    text: SettingsMessages.translate(root.downloadStage, Translation.tr)
 
                     color: Appearance.colors.colOnSurface
 
@@ -1635,9 +1625,7 @@ ContentSection {
 
                     Layout.fillWidth: true
 
-                    text:
-
-                        root.formatBytes(root.downloadReceived) +
+                    text: SettingsMessages.translate(root.formatBytes(root.downloadReceived) +
 
                         (
 
@@ -1655,7 +1643,7 @@ ContentSection {
 
                         root.formatBytes(root.downloadSpeed) +
 
-                        "/s"
+                        "/s", Translation.tr)
 
                     color: Appearance.colors.colOnSurfaceVariant
 
@@ -1673,11 +1661,11 @@ ContentSection {
 
                     materialIcon: "close"
 
-                    mainText: root.cancelRequested
+                    mainText: SettingsMessages.translate(root.cancelRequested
 
                         ? "Cancelando..."
 
-                        : "Cancelar"
+                        : "Cancelar", Translation.tr)
 
                     buttonRadius: Appearance.rounding.small
 
@@ -1715,7 +1703,7 @@ ContentSection {
 
                     materialIcon: "chevron_left"
 
-                    mainText: "Anterior"
+                    mainText: Translation.tr("Previous")
 
                     buttonRadius: Appearance.rounding.small
 
@@ -1827,7 +1815,7 @@ ContentSection {
 
                     materialIcon: "chevron_right"
 
-                    mainText: "Próxima"
+                    mainText: Translation.tr("Next")
 
                     buttonRadius: Appearance.rounding.small
 
@@ -1863,7 +1851,7 @@ ContentSection {
 
                             : "download"
 
-                mainText: root.downloading
+                mainText: SettingsMessages.translate(root.downloading
 
                     ? "Baixando..."
 
@@ -1879,7 +1867,7 @@ ContentSection {
 
                                 ? "Aplicar wallpaper"
 
-                                : "Baixar e aplicar"
+                                : "Baixar e aplicar", Translation.tr)
 
                 buttonRadius: Appearance.rounding.small
 
