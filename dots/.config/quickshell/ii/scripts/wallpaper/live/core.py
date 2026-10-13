@@ -46,7 +46,7 @@ def validate_url(url, hosts):
     return url
 
 
-def open_remote(url, hosts, accept="*/*"):
+def open_remote(url, hosts, accept="*/*", timeout=45):
     # Preserve URL separators and existing percent-encoded sequences while
     # escaping spaces, Unicode and other unsafe characters in path/query.
     validate_url(url, hosts)
@@ -69,7 +69,7 @@ def open_remote(url, hosts, accept="*/*"):
         },
     )
 
-    response = urlopen(request, timeout=45)
+    response = urlopen(request, timeout=timeout)
 
     try:
         validate_url(response.geturl(), hosts)
@@ -91,10 +91,23 @@ class HTMLDocument(HTMLParser):
         self.metadata = {}
 
         self._anchors = []
+        self._articles = []
         self._video_depth = 0
+        self.headings = []
+        self._heading_depth = 0
+        self._heading_text = []
 
     def handle_starttag(self, tag, attributes):
         attrs = dict(attributes)
+
+        if tag == "article":
+            dimensions = None
+            for token in attrs.get("class", "").split():
+                match = re.fullmatch(r"resolutions-(\d{3,5})x(\d{3,5})", token)
+                if match:
+                    dimensions = advertised_resolution("x".join(match.groups()), "")
+                    break
+            self._articles.append({"dimensions": dimensions, "links": []})
 
         if tag == "meta":
             key = (
@@ -112,6 +125,10 @@ class HTMLDocument(HTMLParser):
             href = attrs.get("href")
 
             if href:
+                if self._articles and urlparse(urljoin(self.base, href)).path.startswith("/resolution/"):
+                    dimensions = advertised_resolution("", href)
+                    if dimensions:
+                        self._articles[-1]["dimensions"] = dimensions
                 self._anchors.append({
                     "url": urljoin(self.base, href),
                     "title": str(
@@ -150,6 +167,10 @@ class HTMLDocument(HTMLParser):
                             attrs.get("alt") or ""
                         )
 
+        if tag == "h1":
+            self._heading_depth += 1
+            self._heading_text = []
+
         if tag == "video":
             self._video_depth += 1
 
@@ -165,6 +186,9 @@ class HTMLDocument(HTMLParser):
                 )
 
     def handle_data(self, data):
+        if self._heading_depth and data.strip():
+            self._heading_text.append(data.strip())
+
         if self._anchors and data.strip():
             anchor = self._anchors[-1]
 
@@ -175,10 +199,22 @@ class HTMLDocument(HTMLParser):
             )
 
     def handle_endtag(self, tag):
+        if tag == "h1" and self._heading_depth:
+            self.headings.append(" ".join(self._heading_text))
+            self._heading_depth -= 1
+            self._heading_text = []
+
         if tag == "a" and self._anchors:
-            self.links.append(
-                self._anchors.pop()
-            )
+            anchor = self._anchors.pop()
+            self.links.append(anchor)
+            if self._articles:
+                self._articles[-1]["links"].append(anchor)
+
+        if tag == "article" and self._articles:
+            article = self._articles.pop()
+            if article["dimensions"]:
+                for link in article["links"]:
+                    link["advertised_dimensions"] = article["dimensions"]
 
         if tag == "video":
             self._video_depth = max(
@@ -187,11 +223,12 @@ class HTMLDocument(HTMLParser):
             )
 
 
-def fetch_page(url, hosts):
+def fetch_page(url, hosts, timeout=45):
     with open_remote(
         url,
         hosts,
         accept="text/html",
+        timeout=timeout,
     ) as response:
 
         content_type = response.headers.get(

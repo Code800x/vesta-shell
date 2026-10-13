@@ -53,7 +53,6 @@ ContentSection {
     property string provider: "desktophut"
 
     property string resolution: ""
-
     readonly property var resolutions: [
         { name: "Qualquer resolução", code: "" },
         { name: "1920 × 1080+", code: "1920x1080" },
@@ -810,11 +809,7 @@ ContentSection {
 
         root.hasError = false;
 
-        root.feedback = root.results.length > 0
-
-            ? ""
-
-            : "Nenhum wallpaper encontrado.";
+        root.feedback = root.results.length > 0 ? "" : "Nenhum wallpaper encontrado.";
 
         grid.positionViewAtBeginning();
 
@@ -1243,7 +1238,7 @@ ContentSection {
         StyledText {
             Layout.fillWidth: true
             visible: root.resolution !== ""
-            text: "O filtro usa a resolução anunciada pelo provedor. " +
+            text: "O filtro usa a resolução original anunciada pelo provedor. " +
                   "Vídeos sem resolução informada não aparecem no filtro."
             wrapMode: Text.WordWrap
             color: Appearance.colors.colOnSurfaceVariant

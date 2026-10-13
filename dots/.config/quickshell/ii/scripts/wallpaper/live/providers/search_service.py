@@ -107,12 +107,18 @@ class SearchService:
         max_source_pages=40,
         cache_ttl=1800,
         filter_results=True,
+        enrich_item=None,
+        filtered_max_source_pages=None,
+        max_enrichments=None,
     ):
         self.provider = provider
         self.fetch_page_callback = fetch_page_callback
         self.page_size = page_size
         self.max_source_pages = max_source_pages
         self.filter_results = filter_results
+        self.enrich_item = enrich_item
+        self.filtered_max_source_pages = filtered_max_source_pages
+        self.max_enrichments = max_enrichments
         self.cache = SearchCache(ttl=cache_ttl)
 
     def _cache_key(self, query, source_page):
@@ -192,10 +198,12 @@ class SearchService:
         seen_items = set()
         seen_source_signatures = set()
 
-        for source_number in range(
-            1,
-            self.max_source_pages + 1,
-        ):
+        source_limit = self.max_source_pages
+        if resolution and self.filtered_max_source_pages is not None:
+            source_limit = min(source_limit, self.filtered_max_source_pages)
+        enrichment_count = 0
+
+        for source_number in range(1, source_limit + 1):
             items, source_count = self.source_page(
                 query,
                 source_number,
@@ -226,6 +234,19 @@ class SearchService:
                     query,
                 ):
                     continue
+
+                if resolution and self.enrich_item and (
+                    item.get("width") is None or item.get("height") is None
+                ):
+                    if (self.max_enrichments is None or
+                            enrichment_count < self.max_enrichments):
+                        enrichment_count += 1
+                        try:
+                            item = self.enrich_item(item)
+                        except (OSError, ValueError, TimeoutError) as error:
+                            # A detail page failing must not abort the gallery.
+                            print(f"[MoeWalls] Metadados indisponíveis: {error}",
+                                  file=__import__("sys").stderr)
 
                 if not self.matches_resolution(item, resolution):
                     continue

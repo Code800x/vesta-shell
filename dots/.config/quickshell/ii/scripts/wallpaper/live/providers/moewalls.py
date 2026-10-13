@@ -1,4 +1,3 @@
-
 """Provedor MoeWalls para wallpapers animados."""
 
 from urllib.parse import quote, urlparse
@@ -14,6 +13,13 @@ from .http_errors import fetch_listing_or_end
 from .search_service import SearchService
 
 
+class MoeWallsListingSearch(SearchService):
+    """Isola metadados novos dos caches anteriores sem apagar outros provedores."""
+
+    def _cache_key(self, query, source_page):
+        return "listing-resolution:v2:" + super()._cache_key(query, source_page)
+
+
 class MoeWalls:
     code = "moewalls"
     name = "MoeWalls"
@@ -23,7 +29,7 @@ class MoeWalls:
     hosts = ("moewalls.com",)
 
     def __init__(self):
-        self.search_service = SearchService(
+        self.search_service = MoeWallsListingSearch(
             provider=self.code,
             fetch_page_callback=self.fetch_source_page,
             page_size=12,
@@ -49,7 +55,7 @@ class MoeWalls:
 
     def fetch_source_page(self, query, number):
         document = fetch_listing_or_end(
-            fetch_page,
+            lambda url, hosts: fetch_page(url, hosts, timeout=7),
             self.listing_url(query, number),
             self.hosts,
             page=number,
@@ -94,16 +100,26 @@ class MoeWalls:
 
             source_urls.add(url)
 
-            items.append(
-                wallpaper_item(
-                    self.code,
-                    url,
-                    title,
-                    thumb,
+            item = wallpaper_item(self.code, url, title, thumb)
+            dimensions = link.get("advertised_dimensions")
+            if dimensions:
+                item.update(
+                    width=dimensions[0],
+                    height=dimensions[1],
+                    resolution=f"{dimensions[0]}x{dimensions[1]}",
                 )
-            )
+            items.append(item)
 
         return unique_items(items), len(source_urls)
+
+    def probe_resolution(self, item):
+        """Compatibilidade com o CLI antigo, sem rede ou ffprobe."""
+        width, height = item.get("width"), item.get("height")
+        return {
+            "width": width,
+            "height": height,
+            "status": "advertised" if width and height else "unknown",
+        }
 
     def fetch(self, query, number):
         """Compatibilidade com a API anterior."""
@@ -115,10 +131,7 @@ class MoeWalls:
         return items
 
     def search(self, query, number, resolution=""):
-        return self.search_service.search(
-            query,
-            number, resolution
-        )
+        return self.search_service.search(query, number, resolution)
 
     def resolve(self, url, item=None):
         validate_url(url, self.hosts)

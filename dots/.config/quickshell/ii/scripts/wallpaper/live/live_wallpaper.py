@@ -92,6 +92,18 @@ def search(args):
     )
 
 
+def probe_resolution(args):
+    """Stream per-item resolution events for the MoeWalls gallery."""
+    provider = PROVIDERS["moewalls"]
+    for item in args.items[:12]:
+        try:
+            result = provider.probe_resolution(item)
+        except Exception:
+            result = {"width": None, "height": None, "status": "unknown"}
+        emit(event="resolution", id=item.get("id", ""), **result)
+    emit(ok=True, event="done")
+
+
 def status(args):
     provider = validate_item(args)
     path = cached_wallpaper(provider.code, args.image_id)
@@ -207,6 +219,9 @@ def main():
         default="",
     )
 
+    probe_cmd = commands.add_parser("probe-resolution", help="Sonda resoluções do MoeWalls em segundo plano.")
+    probe_cmd.add_argument("--items-json", required=True)
+
     status_cmd = commands.add_parser(
         "status",
         help="Consulta o cache de um wallpaper.",
@@ -257,6 +272,14 @@ def main():
             list_providers()
         elif args.action == "search":
             search(args)
+        elif args.action == "probe-resolution":
+            args.items = json.loads(args.items_json)
+            if not isinstance(args.items, list) or len(args.items) > 12:
+                raise ValueError("Lote de sondagem inválido.")
+            for item in args.items:
+                if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+                    raise ValueError("Item de sondagem inválido.")
+            probe_resolution(args)
         elif args.action == "status":
             status(args)
         elif args.action == "status-batch":
