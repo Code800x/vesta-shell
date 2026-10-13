@@ -84,19 +84,9 @@ ContentSection {
 
     property bool cacheBatchPending: false
 
-    readonly property string activeWallpaperPath:
-
-        Config.options.background.wallpaperPath || ""
 
     readonly property bool selectedIsActive:
-
-        selectedWallpaper !== null &&
-
-        cachedPath.length > 0 &&
-
-        normalizedPath(cachedPath) ===
-
-            normalizedPath(activeWallpaperPath)
+        Wallpapers.isActiveOnSelectedOutputs(cachedPath)
 
     property real downloadPercent: -1
 
@@ -108,6 +98,7 @@ ContentSection {
 
     property string downloadStage: ""
 
+    property var downloadTarget: null
     property string downloadLifecycle: WallpaperDownloadLifecycle.IDLE
 
     property var downloadResult: null
@@ -134,7 +125,7 @@ ContentSection {
 
         !checkingCache &&
 
-        !selectedIsActive &&
+        !selectedIsActive && Wallpapers.selectedOutputAvailable && !Wallpapers.applying &&
 
         selectedWallpaper !== null &&
 
@@ -154,7 +145,7 @@ ContentSection {
 
     function isItemActive(item) {
 
-        return WallpaperUtils.isItemActive(cachedPaths, item, activeWallpaperPath);
+        return Wallpapers.isActiveOnSelectedOutputs(cachedPathFor(item));
 
     }
 
@@ -532,7 +523,7 @@ ContentSection {
 
         if (cachedPath.length > 0) {
 
-            Wallpapers.apply(cachedPath);
+            if (!Wallpapers.applyToSelected(cachedPath)) return;
 
             feedback = "Wallpaper local enviado para aplicação.";
 
@@ -543,6 +534,7 @@ ContentSection {
         }
 
         const item = selectedWallpaper;
+        downloadTarget = Wallpapers.captureTarget();
 
         resetDownloadState();
 
@@ -1124,7 +1116,11 @@ ContentSection {
 
             root.hasError = false;
 
-            Wallpapers.apply(path);
+            if (!Wallpapers.applyToSelected(path, downloadTarget)) {
+                root.hasError = true;
+                root.feedback = "Wallpaper application failed";
+                return;
+            }
 
             root.feedback = data.cached === true
 

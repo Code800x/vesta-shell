@@ -7,6 +7,7 @@ import qs.modules.common
 import qs.modules.common.widgets
 
 import "./wallpaper/views" as WallpaperViews
+import "./wallpaper/components" as WallpaperComponents
 
 ContentPage {
     id: root
@@ -34,6 +35,14 @@ ContentPage {
             color: Appearance.colors.colOnSurfaceVariant
 
             font.pixelSize: Appearance.font.pixelSize.small
+        }
+
+        WallpaperComponents.WallpaperOutputSelector {
+            Layout.topMargin: 12
+        }
+
+        WallpaperComponents.WallpaperThemeSelector {
+            Layout.topMargin: 12
         }
 
         RowLayout {

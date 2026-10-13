@@ -42,9 +42,10 @@ Variants {
         property int totalWorkspaces: Math.ceil(lastWorkspaceId / workspaceChunkSize) * workspaceChunkSize
 
         // Wallpaper
-        readonly property string configuredWallpaperPath: Config.options.background.wallpaperPath || ""
+        readonly property var monitorWallpaper: Wallpapers.wallpaperForMonitor(modelData.name)
+        readonly property string configuredWallpaperPath: monitorWallpaper.path || ""
         readonly property bool wallpaperIsVideo: /\.(mp4|webm|mkv|avi|mov)$/i.test(configuredWallpaperPath)
-        property string wallpaperPath: wallpaperIsVideo ? Config.options.background.thumbnailPath : configuredWallpaperPath
+        property string wallpaperPath: wallpaperIsVideo ? (monitorWallpaper.thumbnailPath || "") : configuredWallpaperPath
 
         property bool wallpaperSafetyTriggered: {
             const enabled = Config.options.workSafety.enable.wallpaper;
@@ -295,6 +296,7 @@ Variants {
                     shown: Config.options.background.widgets.weather.enable
 
                     sourceComponent: WeatherWidget {
+                        monitorName: bgRoot.modelData.name
                         screenWidth: bgRoot.screen.width
                         screenHeight: bgRoot.screen.height
                         scaledScreenWidth: bgRoot.screen.width
@@ -307,6 +309,7 @@ Variants {
                     shown: Config.options.background.widgets.clock.enable
 
                     sourceComponent: ClockWidget {
+                        monitorName: bgRoot.modelData.name
                         screenWidth: bgRoot.screen.width
                         screenHeight: bgRoot.screen.height
                         scaledScreenWidth: bgRoot.screen.width

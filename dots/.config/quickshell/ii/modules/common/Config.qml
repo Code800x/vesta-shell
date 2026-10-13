@@ -212,6 +212,11 @@ Singleton {
                 }
                 property string wallpaperPath: ""
                 property string thumbnailPath: ""
+                property var wallpaperByMonitor: ({})
+                property var wallpaperDefault: ({})
+                property string wallpaperThemeSource: ""
+                property string wallpaperThemePath: ""
+                property string wallpaperThemeThumbnailPath: ""
                 property bool hideWhenFullscreen: true
                 property JsonObject parallax: JsonObject {
                     property bool vertical: false

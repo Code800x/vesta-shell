@@ -27,7 +27,9 @@ Variants {
 
         screen: modelData
         exclusionMode: ExclusionMode.Ignore
-        WlrLayershell.layer: WlrLayer.Bottom
+        readonly property var monitorWallpaper: Wallpapers.wallpaperForMonitor(modelData.name)
+        readonly property bool wallpaperIsVideo: /\.(mp4|webm|mkv|avi|mov)$/i.test(monitorWallpaper.path || "")
+        WlrLayershell.layer: wallpaperIsVideo ? WlrLayer.Background : WlrLayer.Bottom
         WlrLayershell.namespace: "quickshell:background"
         anchors {
             top: true
@@ -39,7 +41,7 @@ Variants {
 
         StyledImage {
             anchors.fill: parent
-            source: Config.options.background.wallpaperPath
+            source: panelRoot.wallpaperIsVideo ? "" : (panelRoot.monitorWallpaper.path || "")
             fillMode: Image.PreserveAspectCrop
         }
     }

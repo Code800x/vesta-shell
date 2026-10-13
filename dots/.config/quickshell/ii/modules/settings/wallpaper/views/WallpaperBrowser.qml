@@ -42,20 +42,18 @@ ContentSection {
     property bool checkingCache: false
     property bool downloadCancelling: false
     property bool downloadCompleted: false
+    property var downloadTarget: null
     property string downloadLifecycle: WallpaperDownloadLifecycle.IDLE
     property int downloadPercentage: -1
     property double downloadedBytes: 0
     property double downloadTotalBytes: 0
-    readonly property string activeWallpaperPath:
-        Config.options.background.wallpaperPath || ""
     readonly property string selectedCachedPath:
         selectedId.length > 0
             ? String(cachedPaths[selectedId] || "")
             : ""
     readonly property bool selectedIsActive:
-        selectedCachedPath.length > 0 &&
-        normalizedPath(selectedCachedPath) ===
-            normalizedPath(activeWallpaperPath)
+        Wallpapers.isActiveOnSelectedOutputs(selectedCachedPath)
+
     readonly property bool busy:
         (providerControllerLoader.item !== null && providerControllerLoader.item.running) ||
         (searchControllerLoader.item !== null && searchControllerLoader.item.running) ||
@@ -65,7 +63,7 @@ ContentSection {
         !busy &&
         !checkingCache &&
         selectedWallpaper !== null &&
-        !selectedIsActive
+        !selectedIsActive && Wallpapers.selectedOutputAvailable && !Wallpapers.applying
     readonly property var categories: [
         { name: Translation.tr("All"), code: "111" },
         { name: Translation.tr("General"), code: "100" },
@@ -97,7 +95,7 @@ ContentSection {
         return WallpaperUtils.cachedPathFor(cachedPaths, item);
     }
     function isItemActive(item) {
-        return WallpaperUtils.isItemActive(cachedPaths, item, activeWallpaperPath);
+        return Wallpapers.isActiveOnSelectedOutputs(cachedPathFor(item));
     }
     function updateCachedPath(id, path) {
         cachedPaths = WallpaperUtils.withCachedPath(cachedPaths, id, path);
@@ -270,12 +268,13 @@ ContentSection {
         if (!canApply)
             return;
         if (selectedCachedPath.length > 0) {
-            Wallpapers.apply(selectedCachedPath);
+            if (!Wallpapers.applyToSelected(selectedCachedPath)) return;
             feedback = "Wallpaper local enviado para aplicação.";
             hasError = false;
             return;
         }
         const item = selectedWallpaper;
+        downloadTarget = Wallpapers.captureTarget();
         if (!item.url || !item.id || !item.provider)
             return;
         resetDownloadProgress();
@@ -346,7 +345,11 @@ ContentSection {
                 downloadController.item.requestedId,
                 String(data.path)
             );
-            Wallpapers.apply(String(data.path));
+            if (!Wallpapers.applyToSelected(String(data.path), downloadTarget)) {
+                hasError = true;
+                feedback = "Wallpaper application failed";
+                return;
+            }
             hasError = false;
             feedback = data.cached === true
                 ? "Wallpaper do cache enviado para aplicação."

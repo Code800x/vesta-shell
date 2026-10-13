@@ -37,7 +37,7 @@ ContentSection {
 
     function applyPath(path) {
         if (!path) return;
-        Wallpapers.apply(path);
+        if (!Wallpapers.applyToSelected(path)) return;
         root.selectedPath = path;
         root.feedback = "Wallpaper enviado para aplicação.";
     }

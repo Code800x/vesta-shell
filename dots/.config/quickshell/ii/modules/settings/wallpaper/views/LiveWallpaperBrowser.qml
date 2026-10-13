@@ -172,7 +172,7 @@ ContentSection {
 
 
 
-        Wallpapers.apply(root.selectedPath);
+        if (!Wallpapers.applyToSelected(root.selectedPath)) return;
 
 
 
@@ -834,7 +834,7 @@ ContentSection {
 
                 enabled:
 
-                    root.selectedPath.length > 0
+                    root.selectedPath.length > 0 && Wallpapers.selectedOutputAvailable && !Wallpapers.applying
 
 
 

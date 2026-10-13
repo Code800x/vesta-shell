@@ -271,6 +271,10 @@ var templates = [
     {
         "source": "Unknown command: %1",
         "key": "Unknown command: %1"
+    },
+    {
+        "source": "mpvpaper failed to start for %1",
+        "key": "mpvpaper failed to start for %1"
     }
 ];
 
