@@ -10,7 +10,9 @@ from urllib.parse import urlparse
 
 from core.http import fetch
 
-DESTINATION = Path.home() / "Pictures" / "Wallpapers"
+from xdg_paths import wallpapers_directory
+
+DESTINATION = wallpapers_directory()
 MAX_BYTES = 50 * 1024 * 1024
 ALLOWED_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
 ID_PATTERN = re.compile(r"[a-zA-Z0-9]{1,24}")

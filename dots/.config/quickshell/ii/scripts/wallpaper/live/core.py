@@ -11,7 +11,9 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit, quote
 from urllib.request import Request, urlopen
 
-DESTINATION = Path.home() / "Pictures/Wallpapers/Live"
+from xdg_paths import wallpapers_directory
+
+DESTINATION = wallpapers_directory() / "Live"
 
 MAX_HTML = 4 * 1024 * 1024
 MAX_FILE = 1024 * 1024 * 1024

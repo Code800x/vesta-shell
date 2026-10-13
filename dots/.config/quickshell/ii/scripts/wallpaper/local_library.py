@@ -50,6 +50,25 @@ def scan(directory):
     missing = sum(not item["thumbnail"] for item in images + videos)
     return {"images": images, "videos": videos, "missing": missing, "generating": False}
 
+def scan_directories(directories):
+    """Include legacy ~/Pictures downloads without moving or duplicating files."""
+    images, videos = [], []
+    seen = set()
+    for directory in directories:
+        path = Path(directory).expanduser()
+        resolved = str(path.resolve())
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        result = scan(path)
+        images.extend(result["images"])
+        videos.extend(result["videos"])
+    for items in (images, videos):
+        items.sort(key=lambda item: (-item["modified"], item["name"].casefold()))
+    missing = sum(not item["thumbnail"] for item in images + videos)
+    return {"images": images, "videos": videos, "missing": missing, "generating": False}
+
+
 def video_offset(path):
     try:
         result = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
@@ -82,11 +101,11 @@ def generate(path, destination, video):
         except OSError:
             pass
 
-def worker(directory):
+def worker(directories):
     CACHE.mkdir(parents=True, exist_ok=True)
     with LOCK.open("a+") as lock:
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-        inventory = scan(directory)
+        inventory = scan_directories(directories)
         for item, video in [(i, False) for i in inventory["images"]] + [(i, True) for i in inventory["videos"]]:
             if item["thumbnail"]:
                 continue
@@ -110,16 +129,22 @@ def worker_active():
             return True
 
 def main():
-    directory = sys.argv[2] if len(sys.argv) > 2 and sys.argv[1] == "--generate" else (
-        sys.argv[1] if len(sys.argv) > 1 else str(Path.home() / "Pictures" / "Wallpapers"))
-    if len(sys.argv) > 1 and sys.argv[1] == "--generate":
-        worker(directory)
+    from xdg_paths import wallpapers_directory
+    generating = len(sys.argv) > 1 and sys.argv[1] == "--generate"
+    args = sys.argv[2:] if generating else sys.argv[1:]
+    primary = args[0] if args else str(wallpapers_directory())
+    directories = [primary]
+    legacy = Path.home() / "Pictures" / "Wallpapers"
+    if legacy.resolve() != Path(primary).expanduser().resolve() and legacy.is_dir():
+        directories.append(str(legacy))
+    if generating:
+        worker(directories)
         return
-    result = scan(directory)
+    result = scan_directories(directories)
     available = shutil.which("ffmpeg") is not None
     active = worker_active()
     if result["missing"] and available and not active:
-        subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--generate", directory],
+        subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--generate", primary],
                          stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, start_new_session=True)
         active = True
