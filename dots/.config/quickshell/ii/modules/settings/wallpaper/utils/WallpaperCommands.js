@@ -18,16 +18,18 @@ function searchStatic(scriptPath, provider, query, category,
         "--sorting", sorting,
         "--resolutions", resolution,
         "--purity", purity,
-        "--page", String(page)
+        "--page", String(page),
+        "--resolution", String(resolution || "")
     ];
 }
 
-function searchLive(scriptPath, provider, query, page) {
+function searchLive(scriptPath, provider, query, page, resolution) {
     return [
         "python3", scriptPath, "search",
         "--provider", provider,
         "--query", query,
-        "--page", String(page)
+        "--page", String(page),
+        "--resolution", String(resolution || "")
     ];
 }
 

@@ -251,6 +251,28 @@ def clean_title(title, fallback):
     )[:160]
 
 
+def advertised_resolution(title, url):
+    """Infer only resolutions explicitly advertised by the listing.
+
+    This is not a measurement of the video file. Unknown is intentional.
+    """
+    text = f"{title or ''} {urlparse(url).path}".lower()
+    dimensions = re.search(r"(?<!\d)(\d{3,5})\s*[x×]\s*(\d{3,5})(?!\d)", text)
+    if dimensions:
+        width, height = map(int, dimensions.groups())
+        if 240 <= min(width, height) and max(width, height) <= 16384:
+            return width, height
+    if re.search(r"(?<![a-z0-9])(?:8k|4320p)(?![a-z0-9])", text):
+        return 7680, 4320
+    if re.search(r"(?<![a-z0-9])(?:4k|uhd|2160p)(?![a-z0-9])", text):
+        return 3840, 2160
+    if re.search(r"(?<![a-z0-9])(?:2k|qhd|1440p)(?![a-z0-9])", text):
+        return 2560, 1440
+    if re.search(r"(?<![a-z0-9])(?:fhd|1080p)(?![a-z0-9])", text):
+        return 1920, 1080
+    return None
+
+
 def wallpaper_item(provider, url, title, thumb):
     slug = (
         urlparse(url)
@@ -258,13 +280,19 @@ def wallpaper_item(provider, url, title, thumb):
         .split("/")[-1]
     )
 
+    dimensions = advertised_resolution(title, url)
+
     return {
         "id": identifier(url),
         "title": clean_title(title, slug),
         "provider": provider,
         "url": url,
         "thumb": thumb,
-        "resolution": "Vídeo",
+        "resolution": (
+            f"{dimensions[0]}x{dimensions[1]}" if dimensions else "Desconhecida"
+        ),
+        "width": dimensions[0] if dimensions else None,
+        "height": dimensions[1] if dimensions else None,
     }
 
 

@@ -79,8 +79,8 @@ class DesktopHut:
         items, _ = self.fetch_source_page(query, number)
         return items
 
-    def search(self, query, number):
-        return self.search_service.search(query, number)
+    def search(self, query, number, resolution=""):
+        return self.search_service.search(query, number, resolution)
 
     def resolve(self, url, item=None):
         validate_url(url, self.hosts)

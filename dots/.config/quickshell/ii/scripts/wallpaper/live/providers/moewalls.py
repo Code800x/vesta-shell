@@ -114,10 +114,10 @@ class MoeWalls:
 
         return items
 
-    def search(self, query, number):
+    def search(self, query, number, resolution=""):
         return self.search_service.search(
             query,
-            number,
+            number, resolution
         )
 
     def resolve(self, url, item=None):

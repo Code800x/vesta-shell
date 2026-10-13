@@ -52,6 +52,16 @@ ContentSection {
 
     property string provider: "desktophut"
 
+    property string resolution: ""
+
+    readonly property var resolutions: [
+        { name: "Qualquer resolução", code: "" },
+        { name: "1920 × 1080+", code: "1920x1080" },
+        { name: "2560 × 1440+", code: "2560x1440" },
+        { name: "3840 × 2160+", code: "3840x2160" }
+    ]
+
+
     property int page: 1
 
     property int lastSuccessfulPage: 1
@@ -448,7 +458,7 @@ ContentSection {
 
             WallpaperCommands.searchLive(
 
-                scriptPath, provider, searchField.text.trim(), page
+                scriptPath, provider, searchField.text.trim(), page, resolution
 
             ),
 
@@ -1183,6 +1193,61 @@ ContentSection {
 
             font.pixelSize: Appearance.font.pixelSize.small
 
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            spacing: 8
+
+            MaterialSymbol {
+                text: "aspect_ratio"
+                iconSize: 20
+                color: Appearance.colors.colOnSurfaceVariant
+            }
+
+            StyledText {
+                text: "Resolução"
+                color: Appearance.colors.colOnSurface
+                font.pixelSize: Appearance.font.pixelSize.small
+            }
+
+            StyledComboBox {
+                Layout.preferredWidth: 230
+                Layout.minimumWidth: 150
+                enabled: !root.busy && root.providersLoaded
+                buttonIcon: "aspect_ratio"
+                textRole: "name"
+                model: root.resolutions
+                currentIndex: {
+                    for (let i = 0; i < root.resolutions.length; i++) {
+                        if (root.resolutions[i].code === root.resolution)
+                            return i;
+                    }
+                    return 0;
+                }
+                onActivated: index => {
+                    if (index < 0 || index >= root.resolutions.length)
+                        return;
+                    const next = root.resolutions[index].code;
+                    if (next === root.resolution)
+                        return;
+                    root.resolution = next;
+                    root.search(true);
+                }
+            }
+
+            Item { Layout.fillWidth: true }
+        }
+
+        StyledText {
+            Layout.fillWidth: true
+            visible: root.resolution !== ""
+            text: "O filtro usa a resolução anunciada pelo provedor. " +
+                  "Vídeos sem resolução informada não aparecem no filtro."
+            wrapMode: Text.WordWrap
+            color: Appearance.colors.colOnSurfaceVariant
+            font.pixelSize: Appearance.font.pixelSize.smaller
         }
 
         RowLayout {

@@ -152,7 +152,27 @@ class SearchService:
 
         return items, source_count
 
-    def search(self, query, number):
+    @staticmethod
+    def matches_resolution(item, resolution):
+        if not resolution:
+            return True
+        minimums = {
+            "1920x1080": (1920, 1080),
+            "2560x1440": (2560, 1440),
+            "3840x2160": (3840, 2160),
+        }
+        minimum = minimums.get(resolution)
+        if minimum is None:
+            raise ValueError("Filtro de resolução inválido.")
+        width = item.get("width")
+        height = item.get("height")
+        if width is None or height is None:
+            return False
+        # Accept portrait videos using their equivalent long/short edges.
+        long_edge, short_edge = sorted((int(width), int(height)), reverse=True)
+        return long_edge >= minimum[0] and short_edge >= minimum[1]
+
+    def search(self, query, number, resolution=""):
         """Monta uma página virtual de resultados únicos."""
         if not 1 <= number <= 100:
             raise ValueError(
@@ -205,6 +225,9 @@ class SearchService:
                     item.get("url", ""),
                     query,
                 ):
+                    continue
+
+                if not self.matches_resolution(item, resolution):
                     continue
 
                 key = item_key(item)

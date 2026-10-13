@@ -81,7 +81,7 @@ def search(args):
         raise ValueError("A página deve estar entre 1 e 100.")
 
     provider = PROVIDERS[args.provider]
-    result = provider.search(args.query, args.page)
+    result = provider.search(args.query, args.page, args.resolution)
 
     emit(
         ok=True,
@@ -201,6 +201,11 @@ def main():
     )
     search_cmd.add_argument("--query", default="")
     search_cmd.add_argument("--page", type=int, default=1)
+    search_cmd.add_argument(
+        "--resolution",
+        choices=("", "1920x1080", "2560x1440", "3840x2160"),
+        default="",
+    )
 
     status_cmd = commands.add_parser(
         "status",
