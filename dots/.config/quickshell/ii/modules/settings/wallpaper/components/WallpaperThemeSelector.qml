@@ -8,7 +8,55 @@ import "../../utils/SettingsMessages.js" as SettingsMessages
 
 ContentSubsection {
     id: root
-    title: Translation.tr("Interface theme")
+
+    component SegmentedChoice: ColumnLayout {
+        id: selector
+        property var options: []
+        property string selectedCode: ""
+        property bool interactive: true
+        signal optionSelected(string code)
+        spacing: 6
+        Flow {
+            Layout.fillWidth: true
+            spacing: 8
+            Repeater {
+                model: selector.options
+                delegate: Rectangle {
+                    id: chip
+                    required property var modelData
+                    readonly property bool active: modelData.code === selector.selectedCode
+                    implicitWidth: chipRow.implicitWidth + 26
+                    implicitHeight: 36
+                    radius: height / 2
+                    color: active ? Appearance.colors.colPrimaryContainer : Appearance.colors.colLayer2
+                    border.width: active ? 1 : 0
+                    border.color: Appearance.colors.colPrimary
+                    opacity: selector.interactive ? 1 : 0.55
+                    RowLayout {
+                        id: chipRow
+                        anchors.centerIn: parent
+                        spacing: 6
+                        MaterialSymbol {
+                            text: chip.active ? "radio_button_checked" : "radio_button_unchecked"
+                            iconSize: 17
+                            color: chip.active ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnSurfaceVariant
+                        }
+                        StyledText {
+                            text: chip.modelData.name
+                            color: chip.active ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnSurface
+                            font.pixelSize: Appearance.font.pixelSize.small
+                        }
+                    }
+                    HoverHandler { cursorShape: selector.interactive ? Qt.PointingHandCursor : Qt.ArrowCursor }
+                    TapHandler {
+                        enabled: selector.interactive
+                        onTapped: selector.optionSelected(chip.modelData.code)
+                    }
+                }
+            }
+        }
+    }
+    title: Translation.tr("Interface theme · Dynamic colors")
     property string sourceChoice: Wallpapers.themeSource
     readonly property var selectedEntry: Wallpapers.themeEntryForSource(sourceChoice)
     readonly property var choices: {
@@ -33,24 +81,32 @@ ContentSubsection {
         color: Appearance.colors.colOnSurfaceVariant
         font.pixelSize: Appearance.font.pixelSize.small
     }
+    StyledText {
+        Layout.topMargin: 8
+        text: Translation.tr("Color source")
+        color: Appearance.colors.colOnSurface
+    }
+    SegmentedChoice {
+        Layout.fillWidth: true
+        options: root.choices
+        selectedCode: root.sourceChoice
+        interactive: !Wallpapers.applying
+        onOptionSelected: code => {
+            root.sourceChoice = code;
+            Wallpapers.lastThemeError = "";
+        }
+    }
     RowLayout {
         Layout.fillWidth: true
-        Layout.topMargin: 8
-        spacing: 12
-        StyledText { text: Translation.tr("Color source") }
-        StyledComboBox {
-            Layout.fillWidth: true
-            buttonIcon: "palette"
-            textRole: "name"
-            model: root.choices
-            currentIndex: root.choices.findIndex(choice => choice.code === root.sourceChoice)
-            enabled: !Wallpapers.applying
-            onActivated: index => {
-                if (index >= 0 && index < root.choices.length) {
-                    root.sourceChoice = root.choices[index].code;
-                    Wallpapers.lastThemeError = "";
-                }
-            }
+        Layout.topMargin: 12
+        spacing: 8
+        MaterialSymbol { text: "desktop_windows"; iconSize: 20; color: Appearance.colors.colPrimary }
+        StyledText { text: Translation.tr("Monitors"); font.pixelSize: Appearance.font.pixelSize.normal }
+        Item { Layout.fillWidth: true }
+        StyledText {
+            text: Translation.tr("Select a monitor to use its wallpaper colors")
+            color: Appearance.colors.colOnSurfaceVariant
+            font.pixelSize: Appearance.font.pixelSize.smaller
         }
     }
     GridLayout {
@@ -58,8 +114,8 @@ ContentSubsection {
         Layout.fillWidth: true
         Layout.topMargin: 8
         columns: width >= 600 ? 2 : 1
-        columnSpacing: 10
-        rowSpacing: 10
+        columnSpacing: 12
+        rowSpacing: 12
         Repeater {
             model: HyprlandData.monitors
             delegate: Rectangle {
@@ -73,19 +129,52 @@ ContentSubsection {
                     ? Wallpapers.themeSource === modelData.name
                     : !!entry.path && entry.path === Wallpapers.themePath
                 Layout.fillWidth: true
-                Layout.preferredHeight: 150
+                Layout.preferredHeight: 242
                 radius: Appearance.rounding.small
                 color: Appearance.colors.colLayer2
-                border.width: 1
+                border.width: usedInTheme ? 2 : 1
                 border.color: usedInTheme ? Appearance.colors.colPrimary : Appearance.colors.colOutline
+                Behavior on border.color { ColorAnimation { duration: 180 } }
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 8
-                    spacing: 6
-                    Item {
+                    anchors.margins: 12
+                    spacing: 10
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Rectangle {
+                            width: 30; height: 30; radius: 7
+                            color: monitorCard.usedInTheme ? Appearance.colors.colPrimaryContainer : Appearance.colors.colLayer1
+                            StyledText {
+                                anchors.centerIn: parent
+                                text: String(monitorCard.index + 1)
+                                color: monitorCard.usedInTheme ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnSurface
+                            }
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 1
+                            StyledText { text: Translation.tr("Monitor %1").arg(monitorCard.index + 1) }
+                            StyledText {
+                                Layout.fillWidth: true
+                                text: monitorCard.modelData.name
+                                elide: Text.ElideRight
+                                color: Appearance.colors.colOnSurfaceVariant
+                                font.pixelSize: Appearance.font.pixelSize.smaller
+                            }
+                        }
+                        MaterialSymbol {
+                            visible: monitorCard.usedInTheme
+                            text: "check_circle"
+                            iconSize: 22
+                            color: Appearance.colors.colPrimary
+                        }
+                    }
+                    Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
+                        radius: Appearance.rounding.small
                         clip: true
+                        color: Appearance.colors.colLayer1
                         Image {
                             anchors.fill: parent
                             source: monitorCard.previewPath
@@ -97,31 +186,33 @@ ContentSubsection {
                             anchors.centerIn: parent
                             visible: !monitorCard.previewPath
                             text: monitorCard.video ? "movie" : "image"
-                            iconSize: 28
+                            iconSize: 32
                             color: Appearance.colors.colOnSurfaceVariant
                         }
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        StyledText {
-                            Layout.fillWidth: true
-                            text: Translation.tr("Monitor %1 (%2)").arg(monitorCard.index + 1).arg(monitorCard.modelData.name)
-                            elide: Text.ElideRight
-                            font.pixelSize: Appearance.font.pixelSize.small
-                        }
-                        MaterialSymbol {
+                        Rectangle {
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.margins: 8
+                            width: 28; height: 28; radius: 7
                             visible: monitorCard.usedInTheme
-                            text: "palette"
-                            iconSize: 18
-                            color: Appearance.colors.colPrimary
+                            color: Appearance.colors.colPrimaryContainer
+                            MaterialSymbol {
+                                anchors.centerIn: parent
+                                text: "palette"
+                                iconSize: 17
+                                color: Appearance.colors.colOnPrimaryContainer
+                            }
                         }
                     }
-                    StyledText {
-                        Layout.fillWidth: true
-                        text: monitorCard.usedInTheme ? Translation.tr("Used for the theme")
-                            : monitorCard.entry.path ? Translation.tr("Wallpaper applied") : Translation.tr("No wallpaper configured")
-                        color: monitorCard.usedInTheme ? Appearance.colors.colPrimary : Appearance.colors.colOnSurfaceVariant
-                        font.pixelSize: Appearance.font.pixelSize.smaller
+                    RippleButtonWithIcon {
+                        Layout.alignment: Qt.AlignHCenter
+                        materialIcon: monitorCard.usedInTheme ? "check" : "palette"
+                        mainText: monitorCard.usedInTheme ? Translation.tr("Current theme source") : Translation.tr("Use for interface theme")
+                        enabled: !Wallpapers.applying && !!monitorCard.entry.path && !monitorCard.usedInTheme
+                        onClicked: {
+                            root.sourceChoice = monitorCard.modelData.name;
+                            Wallpapers.applyThemeSource(monitorCard.modelData.name);
+                        }
                     }
                 }
             }
@@ -140,7 +231,7 @@ ContentSubsection {
         Layout.topMargin: 6
         spacing: 8
         StyledText {
-            text: Translation.tr("Current palette")
+            text: Translation.tr("Extracted color palette")
             color: Appearance.colors.colOnSurfaceVariant
             font.pixelSize: Appearance.font.pixelSize.smaller
         }
@@ -149,7 +240,7 @@ ContentSubsection {
                 Appearance.m3colors.m3tertiary, Appearance.m3colors.m3surfaceContainerHigh]
             delegate: Rectangle {
                 required property var modelData
-                width: 16; height: 16; radius: 8
+                width: 30; height: 30; radius: 15
                 color: modelData
                 border.width: 1
                 border.color: Appearance.colors.colOutline

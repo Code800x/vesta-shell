@@ -7,6 +7,54 @@ import qs.modules.common.widgets
 
 ColumnLayout {
     id: root
+
+    component SegmentedChoice: ColumnLayout {
+        id: selector
+        property var options: []
+        property string selectedCode: ""
+        property bool interactive: true
+        signal optionSelected(string code)
+        spacing: 6
+        Flow {
+            Layout.fillWidth: true
+            spacing: 8
+            Repeater {
+                model: selector.options
+                delegate: Rectangle {
+                    id: chip
+                    required property var modelData
+                    readonly property bool active: modelData.code === selector.selectedCode
+                    implicitWidth: chipRow.implicitWidth + 26
+                    implicitHeight: 36
+                    radius: height / 2
+                    color: active ? Appearance.colors.colPrimaryContainer : Appearance.colors.colLayer2
+                    border.width: active ? 1 : 0
+                    border.color: Appearance.colors.colPrimary
+                    opacity: selector.interactive ? 1 : 0.55
+                    RowLayout {
+                        id: chipRow
+                        anchors.centerIn: parent
+                        spacing: 6
+                        MaterialSymbol {
+                            text: chip.active ? "radio_button_checked" : "radio_button_unchecked"
+                            iconSize: 17
+                            color: chip.active ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnSurfaceVariant
+                        }
+                        StyledText {
+                            text: chip.modelData.name
+                            color: chip.active ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnSurface
+                            font.pixelSize: Appearance.font.pixelSize.small
+                        }
+                    }
+                    HoverHandler { cursorShape: selector.interactive ? Qt.PointingHandCursor : Qt.ArrowCursor }
+                    TapHandler {
+                        enabled: selector.interactive
+                        onTapped: selector.optionSelected(chip.modelData.code)
+                    }
+                }
+            }
+        }
+    }
     Layout.fillWidth: true
     spacing: 6
     readonly property var options: [{
@@ -18,26 +66,18 @@ ColumnLayout {
         code: monitor.name
     })))
 
-    RowLayout {
+    StyledText {
+        text: Translation.tr("Apply wallpaper to")
+        color: Appearance.colors.colOnSurface
+    }
+    SegmentedChoice {
         Layout.fillWidth: true
-        spacing: 12
-        StyledText {
-            text: Translation.tr("Apply wallpaper to")
-            color: Appearance.colors.colOnSurface
-        }
-        StyledComboBox {
-            Layout.fillWidth: true
-            buttonIcon: "desktop_windows"
-            textRole: "name"
-            model: root.options
-            currentIndex: root.options.findIndex(option => option.code === Wallpapers.selectedOutput)
-            enabled: !Wallpapers.applying && Wallpapers.outputNames.length > 0
-            onActivated: index => {
-                if (index >= 0 && index < root.options.length) {
-                    Wallpapers.selectedOutput = root.options[index].code;
-                    Wallpapers.lastApplyError = "";
-                }
-            }
+        options: root.options
+        selectedCode: Wallpapers.selectedOutput
+        interactive: !Wallpapers.applying && Wallpapers.outputNames.length > 0
+        onOptionSelected: code => {
+            Wallpapers.selectedOutput = code;
+            Wallpapers.lastApplyError = "";
         }
     }
     StyledText {

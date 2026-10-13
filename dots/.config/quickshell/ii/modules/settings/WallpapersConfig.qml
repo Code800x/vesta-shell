@@ -1,169 +1,127 @@
-import "utils/SettingsMessages.js" as SettingsMessages
 import QtQuick
-import qs.services
 import QtQuick.Layouts
-
+import QtQuick.Controls
 import qs.modules.common
 import qs.modules.common.widgets
-
+import qs.services
 import "./wallpaper/views" as WallpaperViews
 import "./wallpaper/components" as WallpaperComponents
 
+// Vesta: responsive Material layout. Keep the existing search, download,
+// wallpaper application and theme services inside their original components.
 ContentPage {
     id: root
-
+    // Follow the same shared page sizing as ServicesConfig and GeneralConfig.
     forceWidth: true
-
-    // 0 = Wallpapers normais
-    // 1 = Live Wallpapers
-    // 2 = Meus Wallpapers
     property int activeTab: 0
 
     ContentSection {
         Layout.fillWidth: true
-
         icon: "wallpaper"
-        title: Translation.tr("Wallpaper manager")
-
+        title: Translation.tr("Wallpapers · Vesta Shell")
         StyledText {
             Layout.fillWidth: true
-
-            text: Translation.tr("Browse, select and apply static or live wallpapers directly from Vesta Shell.")
-
+            text: Translation.tr("Manage wallpapers, explore your library and choose your interface colors.")
             wrapMode: Text.WordWrap
-
             color: Appearance.colors.colOnSurfaceVariant
-
             font.pixelSize: Appearance.font.pixelSize.small
         }
+    }
 
-        WallpaperComponents.WallpaperOutputSelector {
-            Layout.topMargin: 12
-        }
-
-        WallpaperComponents.WallpaperThemeSelector {
-            Layout.topMargin: 12
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.topMargin: 12
-            spacing: 8
-
-            Repeater {
-                model: [
-                    {
-                        title: Translation.tr("Static wallpapers"),
-                        icon: "image"
-                    },
-                    {
-                        title: Translation.tr("Live wallpapers"),
-                        icon: "animated_images"
-                    },
-                    {
-                        title: Translation.tr("My wallpapers"),
-                        icon: "folder_open"
-                    }
-                ]
-
-                delegate: Rectangle {
-                    id: tabButton
-
-                    required property int index
-                    required property var modelData
-
-                    readonly property bool selected:
-                        root.activeTab === index
-
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 44
-
-                    radius: Appearance.rounding.small
-
-                    color: selected
-                        ? Appearance.colors.colPrimaryContainer
-                        : Appearance.colors.colLayer2
-
-                    border.width: selected ? 1 : 0
-                    border.color: Appearance.colors.colPrimary
-
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 160
-                        }
-                    }
-
-                    RowLayout {
-                        anchors.centerIn: parent
-                        spacing: 8
-
-                        MaterialSymbol {
-                            text: tabButton.modelData.icon
-                            iconSize: 20
-
-                            color: tabButton.selected
-                                ? Appearance.colors.colOnPrimaryContainer
-                                : Appearance.colors.colOnSurfaceVariant
-                        }
-
-                        StyledText {
-                            text: tabButton.modelData.title
-
-                            color: tabButton.selected
-                                ? Appearance.colors.colOnPrimaryContainer
-                                : Appearance.colors.colOnSurfaceVariant
-
-                            font.pixelSize:
-                                Appearance.font.pixelSize.normal
-                        }
-                    }
-
-                    HoverHandler {
-                        id: hoverHandler
-                        cursorShape: Qt.PointingHandCursor
-                    }
-
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: parent.radius
-
-                        color: Appearance.colors.colPrimary
-
-                        opacity: hoverHandler.hovered
-                            ? 0.08
-                            : 0
-
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: 140
+    Component {
+        id: libraryComponent
+        ColumnLayout {
+            id: libraryContent
+            spacing: 12
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 58
+                radius: Appearance.rounding.normal
+                color: Appearance.colors.colLayer2
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    spacing: 6
+                    Repeater {
+                        model: [
+                            { title: Translation.tr("Library"), icon: "image" },
+                            { title: Translation.tr("Live wallpapers"), icon: "animated_images" },
+                            { title: Translation.tr("My wallpapers"), icon: "folder_open" }
+                        ]
+                        delegate: Rectangle {
+                            id: tab
+                            required property int index
+                            required property var modelData
+                            readonly property bool selected: root.activeTab === index
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            implicitHeight: 42
+                            radius: Appearance.rounding.small
+                            color: selected ? Appearance.colors.colPrimaryContainer : Appearance.colors.colLayer2
+                            border.width: selected ? 1 : 0
+                            border.color: Appearance.colors.colPrimary
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: 6
+                                spacing: 5
+                                MaterialSymbol {
+                                    text: tab.modelData.icon
+                                    iconSize: 17
+                                    color: tab.selected ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnSurfaceVariant
+                                }
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    text: tab.modelData.title
+                                    elide: Text.ElideRight
+                                    color: tab.selected ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnSurfaceVariant
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                }
                             }
+                            HoverHandler { cursorShape: Qt.PointingHandCursor }
+                            TapHandler { onTapped: root.activeTab = tab.index }
                         }
-                    }
-
-                    TapHandler {
-                        onTapped: root.activeTab = tabButton.index
                     }
                 }
+            }
+            WallpaperViews.WallpaperBrowser {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                visible: root.activeTab === 0
+            }
+            WallpaperViews.LiveWallpaperOnlineBrowser {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                visible: root.activeTab === 1
+            }
+            WallpaperViews.LocalWallpaperLibrary {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                visible: root.activeTab === 2
             }
         }
     }
 
-    // Aba 1: wallpapers estáticos
-    // O componente permanece instanciado ao trocar de aba.
-    WallpaperViews.WallpaperBrowser {
-        Layout.fillWidth: true
-        visible: root.activeTab === 0
+    Component {
+        id: settingsComponent
+        ColumnLayout {
+            spacing: 14
+            WallpaperComponents.WallpaperOutputSelector { Layout.fillWidth: true }
+            WallpaperComponents.WallpaperThemeSelector { Layout.fillWidth: true }
+        }
     }
 
-    // Aba 2: explorar wallpapers animados online.
-    WallpaperViews.LiveWallpaperOnlineBrowser {
+    // Use ContentPage's existing sizing, spacing and scrolling behavior.
+    Loader {
         Layout.fillWidth: true
-        visible: root.activeTab === 1
+        Layout.minimumWidth: 0
+        Layout.preferredHeight: item ? item.implicitHeight : 0
+        sourceComponent: libraryComponent
     }
 
-    // Aba 3: biblioteca local e importação manual de vídeos.
-    WallpaperViews.LocalWallpaperLibrary {
+    Loader {
         Layout.fillWidth: true
-        visible: root.activeTab === 2
+        Layout.minimumWidth: 0
+        Layout.preferredHeight: item ? item.implicitHeight : 0
+        sourceComponent: settingsComponent
     }
 }

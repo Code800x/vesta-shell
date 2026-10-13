@@ -970,5 +970,16 @@
   "Theme wallpaper file not found": "O arquivo do wallpaper escolhido para o tema não foi encontrado",
   "Selected theme monitor is not available": "O monitor escolhido para o tema não está disponível",
   "Theme application failed": "Falha ao aplicar o tema",
-  "The wallpaper will change only on the selected monitors. Choose the interface color source below.": "O wallpaper será alterado apenas nos monitores selecionados. Escolha abaixo a fonte das cores da interface."
+  "The wallpaper will change only on the selected monitors. Choose the interface color source below.": "O wallpaper será alterado apenas nos monitores selecionados. Escolha abaixo a fonte das cores da interface.",
+  "Wallpapers · Vesta Shell": "Wallpapers · Vesta Shell",
+  "Manage wallpapers, explore your library and choose your interface colors.": "Gerencie os papéis de parede, explore sua biblioteca e escolha as cores da interface.",
+  "Library": "Biblioteca",
+  "Current theme source": "Fonte atual do tema",
+  "Explore wallpapers online": "Explorar wallpapers online",
+  "Extracted color palette": "Paleta de cores extraída",
+  "Interface theme · Dynamic colors": "Tema da interface · Cores dinâmicas",
+  "Monitor %1": "Monitor %1",
+  "Monitors": "Monitores",
+  "Select a monitor to use its wallpaper colors": "Selecione um monitor para usar as cores do wallpaper",
+  "Use for interface theme": "Usar no tema da interface"
 }
