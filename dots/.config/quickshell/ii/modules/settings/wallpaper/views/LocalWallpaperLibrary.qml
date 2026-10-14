@@ -18,6 +18,36 @@ ContentSection {
     property var videos: []
     property string selectedPath: ""
     property string feedback: ""
+    property string pendingRemovalPath: ""
+    property string pendingRemovalName: ""
+    property bool removing: false
+
+    function isActiveWallpaper(path) {
+        const active = Wallpapers.wallpapers || [];
+        return active.some(value => String(value).replace("file://", "") === path);
+    }
+
+    function requestRemoval(path, name) {
+        if (!path || root.removing) return;
+        if (root.isActiveWallpaper(path)) {
+            root.feedback = Translation.tr("This wallpaper is currently in use. Apply another wallpaper before removing it.");
+            return;
+        }
+        root.pendingRemovalPath = path;
+        root.pendingRemovalName = name || "";
+        removalDialog.open();
+    }
+
+    function removeConfirmed() {
+        if (!root.pendingRemovalPath || root.removing) return;
+        root.removing = true;
+        root.feedback = "";
+        const args = ["python3", root.scannerPath, "--trash", root.pendingRemovalPath];
+        for (const path of Wallpapers.wallpapers || [])
+            if (path) args.push(String(path).replace("file://", ""));
+        trashProcess.command = args;
+        trashProcess.running = true;
+    }
     property bool scanning: false
     property bool loadedOnce: false
     property bool generatingThumbnails: false
@@ -71,6 +101,104 @@ ContentSection {
                     root.feedback = "Instale o FFmpeg para gerar miniaturas de imagens e vídeos.";
             } catch (e) {
                 root.feedback = "Resposta inválida ao consultar os wallpapers locais.";
+            }
+        }
+    }
+
+    Process {
+        id: trashProcess
+        running: false
+        stdout: StdioCollector { id: trashOutput }
+        stderr: StdioCollector { id: trashErrors }
+        onExited: (exitCode, exitStatus) => {
+            root.removing = false;
+            if (exitCode === 0) {
+                if (root.selectedPath === root.pendingRemovalPath)
+                    root.selectedPath = "";
+                root.feedback = Translation.tr("Wallpaper moved to trash.");
+                root.pendingRemovalPath = "";
+                root.refresh();
+            } else {
+                root.feedback = Translation.tr("Could not move wallpaper to trash.") + " " + trashErrors.text.trim();
+            }
+        }
+    }
+
+    // Follow the existing Vesta Material 3 confirmation popup pattern.
+    Controls.Popup {
+        id: removalDialog
+        parent: Controls.Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(420, parent ? parent.width - 32 : 420)
+        modal: true
+        focus: true
+        padding: 22
+        closePolicy: Controls.Popup.CloseOnEscape
+
+        background: Rectangle {
+            radius: Appearance.rounding.large
+            color: Appearance.m3colors.m3surfaceContainerHigh
+            border.width: 1
+            border.color: Appearance.m3colors.m3outlineVariant
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 16
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                MaterialSymbol {
+                    text: "delete_outline"
+                    iconSize: 24
+                    color: Appearance.m3colors.m3error
+                }
+
+                StyledText {
+                    Layout.fillWidth: true
+                    text: Translation.tr("Remove wallpaper")
+                    font.pixelSize: 20
+                    font.weight: Font.DemiBold
+                    color: Appearance.m3colors.m3onSurface
+                    wrapMode: Text.WordWrap
+                }
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                text: Translation.tr("Move this wallpaper to the trash?")
+                color: Appearance.m3colors.m3onSurfaceVariant
+                wrapMode: Text.WordWrap
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                visible: root.pendingRemovalName.length > 0
+                text: root.pendingRemovalName
+                color: Appearance.m3colors.m3onSurface
+                wrapMode: Text.WrapAnywhere
+                font.pixelSize: Appearance.font.pixelSize.small
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                Item { Layout.fillWidth: true }
+
+                DialogButton {
+                    buttonText: Translation.tr("Cancel")
+                    onClicked: removalDialog.close()
+                }
+
+                DialogButton {
+                    buttonText: Translation.tr("Move to trash")
+                    colText: Appearance.m3colors.m3error
+                    onClicked: {
+                        root.removeConfirmed();
+                        removalDialog.close();
+                    }
+                }
             }
         }
     }
@@ -223,6 +351,43 @@ ContentSection {
                                 "wallpaper": { "thumb": "", "title": modelData.name || "" },
                                 "local": true
                             })
+                            Rectangle {
+                                anchors.top: parent.top
+                                anchors.right: parent.right
+                                anchors.margins: 5
+                                width: 36
+                                height: 36
+                                radius: 9
+                                // Solid Material surface keeps the action readable over bright wallpapers.
+                                color: removeMouseimageCard.containsMouse
+                                    ? Appearance.m3colors.m3errorContainer
+                                    : Appearance.m3colors.m3surfaceContainerHigh
+                                border.width: 1
+                                border.color: removeMouseimageCard.containsMouse
+                                    ? Appearance.m3colors.m3error
+                                    : Appearance.m3colors.m3outlineVariant
+                                z: 5
+
+                                Behavior on color { ColorAnimation { duration: 140 } }
+                                Behavior on border.color { ColorAnimation { duration: 140 } }
+
+                                MaterialSymbol {
+                                    anchors.centerIn: parent
+                                    text: "delete_outline"
+                                    iconSize: 23
+                                    color: removeMouseimageCard.containsMouse
+                                        ? Appearance.m3colors.m3onErrorContainer
+                                        : Appearance.m3colors.m3error
+                                }
+                                MouseArea {
+                                    id: removeMouseimageCard
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    enabled: !root.removing
+                                    onClicked: root.requestRemoval(imageCard.modelData.path, imageCard.modelData.name)
+                                }
+                            }
                             onLoaded: {
                                 item.wallpaper = Qt.binding(() => ({
                                     thumb: (Math.floor(imageCard.index / 3) * 138 < imagesScroll.contentY + imagesScroll.height + 276
@@ -302,6 +467,43 @@ ContentSection {
                                 "wallpaper": { "thumb": "", "title": modelData.name || "" },
                                 "local": true
                             })
+                            Rectangle {
+                                anchors.top: parent.top
+                                anchors.right: parent.right
+                                anchors.margins: 5
+                                width: 36
+                                height: 36
+                                radius: 9
+                                // Solid Material surface keeps the action readable over bright wallpapers.
+                                color: removeMousevideoCard.containsMouse
+                                    ? Appearance.m3colors.m3errorContainer
+                                    : Appearance.m3colors.m3surfaceContainerHigh
+                                border.width: 1
+                                border.color: removeMousevideoCard.containsMouse
+                                    ? Appearance.m3colors.m3error
+                                    : Appearance.m3colors.m3outlineVariant
+                                z: 5
+
+                                Behavior on color { ColorAnimation { duration: 140 } }
+                                Behavior on border.color { ColorAnimation { duration: 140 } }
+
+                                MaterialSymbol {
+                                    anchors.centerIn: parent
+                                    text: "delete_outline"
+                                    iconSize: 23
+                                    color: removeMousevideoCard.containsMouse
+                                        ? Appearance.m3colors.m3onErrorContainer
+                                        : Appearance.m3colors.m3error
+                                }
+                                MouseArea {
+                                    id: removeMousevideoCard
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    enabled: !root.removing
+                                    onClicked: root.requestRemoval(videoCard.modelData.path, videoCard.modelData.name)
+                                }
+                            }
                             onLoaded: {
                                 item.wallpaper = Qt.binding(() => ({
                                     thumb: (Math.floor(videoCard.index / 3) * 120 < videosScroll.contentY + videosScroll.height + 240

@@ -128,8 +128,40 @@ def worker_active():
         except BlockingIOError:
             return True
 
+def trash_wallpaper(target, active_paths):
+    """Move only a managed, regular wallpaper file to the desktop trash."""
+    from xdg_paths import wallpapers_directory
+
+    path = Path(target).expanduser()
+    if not path.is_absolute() or path.is_symlink() or not path.is_file():
+        raise ValueError("Invalid wallpaper file")
+    if path.suffix.lower() not in IMAGES | VIDEOS:
+        raise ValueError("Unsupported wallpaper format")
+
+    canonical = path.resolve(strict=True)
+    managed = [wallpapers_directory(), Path.home() / "Pictures" / "Wallpapers"]
+    if not any(canonical.is_relative_to(folder.expanduser().resolve()) for folder in managed):
+        raise ValueError("File is outside the managed wallpaper library")
+    if str(canonical) in {str(Path(p).expanduser().resolve()) for p in active_paths if p}:
+        raise ValueError("Cannot remove a wallpaper currently in use")
+
+    result = subprocess.run(["gio", "trash", str(canonical)], capture_output=True, text=True)
+    if result.returncode:
+        raise RuntimeError(result.stderr.strip() or "Could not move wallpaper to trash")
+    return {"ok": True}
+
+
 def main():
     from xdg_paths import wallpapers_directory
+    if len(sys.argv) > 1 and sys.argv[1] == "--trash":
+        try:
+            if len(sys.argv) < 3:
+                raise ValueError("Missing wallpaper path")
+            print(json.dumps(trash_wallpaper(sys.argv[2], sys.argv[3:])))
+        except (ValueError, OSError, RuntimeError) as error:
+            print(json.dumps({"ok": False, "error": str(error)}))
+            sys.exit(1)
+        return
     generating = len(sys.argv) > 1 and sys.argv[1] == "--generate"
     args = sys.argv[2:] if generating else sys.argv[1:]
     primary = args[0] if args else str(wallpapers_directory())

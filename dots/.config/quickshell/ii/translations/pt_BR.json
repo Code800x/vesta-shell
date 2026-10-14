@@ -995,5 +995,11 @@
   "Show RAM usage (GB)": "Exibir uso da RAM (GB)",
   "Show Swap usage (GB)": "Exibir uso da Swap (GB)",
   "Media player": "Reprodutor de mídia",
-  "Show media player in bar": "Exibir reprodutor de mídia na barra"
+  "Show media player in bar": "Exibir reprodutor de mídia na barra",
+  "Remove wallpaper": "Remover wallpaper",
+  "Move this wallpaper to the trash?": "Mover este wallpaper para a lixeira?",
+  "Wallpaper moved to trash.": "Wallpaper movido para a lixeira.",
+  "Could not move wallpaper to trash.": "Não foi possível mover o wallpaper para a lixeira.",
+  "This wallpaper is currently in use. Apply another wallpaper before removing it.": "Este wallpaper está em uso. Aplique outro antes de removê-lo.",
+  "Move to trash": "Mover para a lixeira"
 }
