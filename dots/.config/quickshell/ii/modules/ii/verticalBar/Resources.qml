@@ -7,7 +7,7 @@ import qs.modules.ii.bar as Bar
 MouseArea {
     id: root
     property bool alwaysShowAllResources: false
-    implicitHeight: columnLayout.implicitHeight
+    implicitHeight: (Config.options.bar.resources.showMemory || Config.options.bar.resources.showSwap || Config.options.bar.resources.showCpu) ? columnLayout.implicitHeight : 0
     implicitWidth: columnLayout.implicitWidth
     hoverEnabled: !Config.options.bar.tooltips.clickToShow
 
@@ -18,6 +18,7 @@ MouseArea {
 
         Resource {
             Layout.alignment: Qt.AlignHCenter
+            visible: Config.options.bar.resources.showMemory
             iconName: "memory"
             percentage: ResourceUsage.memoryUsedPercentage
             warningThreshold: Config.options.bar.resources.memoryWarningThreshold
@@ -25,6 +26,7 @@ MouseArea {
 
         Resource {
             Layout.alignment: Qt.AlignHCenter
+            visible: Config.options.bar.resources.showSwap
             iconName: "swap_horiz"
             percentage: ResourceUsage.swapUsedPercentage
             warningThreshold: Config.options.bar.resources.swapWarningThreshold
@@ -32,6 +34,7 @@ MouseArea {
 
         Resource {
             Layout.alignment: Qt.AlignHCenter
+            visible: Config.options.bar.resources.showCpu
             iconName: "planner_review"
             percentage: ResourceUsage.cpuUsage
             warningThreshold: Config.options.bar.resources.cpuWarningThreshold

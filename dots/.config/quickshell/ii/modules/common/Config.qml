@@ -245,8 +245,12 @@ Singleton {
                 property string topLeftIcon: "spark" // Options: "distro" or any icon name in ~/.config/quickshell/ii/assets/icons
                 property bool showBackground: true
                 property bool verbose: true
+                property bool showMediaPlayer: true // Show the MPRIS player widget in the bar
                 property bool vertical: false
                 property JsonObject resources: JsonObject {
+                    property bool showMemory: true
+                    property bool showSwap: false
+                    property bool showCpu: true
                     property bool alwaysShowSwap: true
                     property bool alwaysShowCpu: true
                     property int memoryWarningThreshold: 95

@@ -8,6 +8,44 @@ ContentPage {
     forceWidth: true
 
     ContentSection {
+        icon: "monitor_heart"
+        title: Translation.tr("Resource indicators")
+
+        ConfigSwitch {
+            buttonIcon: "planner_review"
+            text: Translation.tr("Show CPU usage (%)")
+            checked: Config.options.bar.resources.showCpu
+            onCheckedChanged: Config.options.bar.resources.showCpu = checked
+        }
+
+        ConfigSwitch {
+            buttonIcon: "memory"
+            text: Translation.tr("Show RAM usage (GB)")
+            checked: Config.options.bar.resources.showMemory
+            onCheckedChanged: Config.options.bar.resources.showMemory = checked
+        }
+
+        ConfigSwitch {
+            buttonIcon: "swap_horiz"
+            text: Translation.tr("Show Swap usage (GB)")
+            checked: Config.options.bar.resources.showSwap
+            onCheckedChanged: Config.options.bar.resources.showSwap = checked
+        }
+    }
+
+    ContentSection {
+        icon: "music_note"
+        title: Translation.tr("Media player")
+
+        ConfigSwitch {
+            buttonIcon: "music_note"
+            text: Translation.tr("Show media player in bar")
+            checked: Config.options.bar.showMediaPlayer
+            onCheckedChanged: Config.options.bar.showMediaPlayer = checked
+        }
+    }
+
+    ContentSection {
         icon: "notifications"
         title: Translation.tr("Notifications")
         ConfigSwitch {

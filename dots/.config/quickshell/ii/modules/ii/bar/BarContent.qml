@@ -119,7 +119,7 @@ Item { // Bar content region
             }
 
             Media {
-                visible: root.useShortenedForm < 2
+                visible: Config.options.bar.showMediaPlayer && root.useShortenedForm < 2
                 Layout.fillWidth: true
             }
         }

@@ -93,9 +93,12 @@ Item { // Bar content region
                 Layout.fillHeight: false
             }
             
-            HorizontalBarSeparator {}
+            HorizontalBarSeparator {
+                visible: Config.options.bar.showMediaPlayer
+            }
 
             VerticalMedia {
+                visible: Config.options.bar.showMediaPlayer
                 Layout.fillWidth: true
                 Layout.fillHeight: false
             }
