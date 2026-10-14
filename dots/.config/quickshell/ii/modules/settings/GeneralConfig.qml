@@ -18,6 +18,53 @@ ContentPage {
         command: [Directories.aiTranslationScriptPath, translationProc.locale]
     }
 
+    // Hyprland scrolling layout (Niri-like), persisted in the user configuration.
+    Item {
+        id: scrollingController
+        property bool ready: false
+        property bool active: false
+        property bool busy: false
+        property string errorMessage: ""
+        property string requestedAction: "status"
+        property string scriptPath: FileUtils.trimFileProtocol(Directories.scriptPath) + "/hyprland/scrolling_layout.py"
+
+        function refresh() {
+            if (!busy) {
+                requestedAction = "status";
+                scrollingProcess.running = true;
+            }
+        }
+        function setEnabled(value) {
+            if (!ready || busy || value === active) return;
+            requestedAction = value ? "enable" : "disable";
+            errorMessage = "";
+            scrollingProcess.running = true;
+        }
+
+        Component.onCompleted: refresh()
+        Process {
+            id: scrollingProcess
+            command: ["python3", scrollingController.scriptPath, scrollingController.requestedAction]
+            onRunningChanged: scrollingController.busy = running
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    try {
+                        const result = JSON.parse(text.trim());
+                        if (result.ok) {
+                            scrollingController.active = result.layout === "scrolling";
+                            scrollingController.errorMessage = "";
+                        } else {
+                            scrollingController.errorMessage = result.error || Translation.tr("Could not change window layout");
+                        }
+                    } catch (error) {
+                        scrollingController.errorMessage = Translation.tr("Could not read Hyprland layout");
+                    }
+                    scrollingController.ready = true;
+                }
+            }
+        }
+    }
+
     ContentSection {
         icon: "volume_up"
         title: Translation.tr("Audio")
@@ -208,6 +255,27 @@ ContentPage {
 
         SettingsComponents.KeyboardLayoutConfig {
             Layout.fillWidth: true
+        }
+    }
+
+    ContentSection {
+        icon: "view_column"
+        title: Translation.tr("Window management")
+
+        ConfigSwitch {
+            buttonIcon: "view_carousel"
+            text: Translation.tr("Scrolling layout (Niri-style)")
+            enabled: scrollingController.ready && !scrollingController.busy
+            checked: scrollingController.active
+            onCheckedChanged: scrollingController.setEnabled(checked)
+            StyledToolTip {
+                text: Translation.tr("Arrange windows in horizontally scrolling columns. The choice is saved for future sessions.")
+            }
+        }
+        ContentSubsectionLabel {
+            text: scrollingController.errorMessage.length > 0
+                ? scrollingController.errorMessage
+                : Translation.tr("Changes take effect immediately and persist after restarting Hyprland.")
         }
     }
 

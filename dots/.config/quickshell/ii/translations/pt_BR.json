@@ -981,5 +981,13 @@
   "Monitor %1": "Monitor %1",
   "Monitors": "Monitores",
   "Select a monitor to use its wallpaper colors": "Selecione um monitor para usar as cores do wallpaper",
-  "Use for interface theme": "Usar no tema da interface"
+  "Use for interface theme": "Usar no tema da interface",
+  "Window management": "Gerenciamento de janelas",
+  "Scrolling layout (Niri-style)": "Layout de rolagem (estilo Niri)",
+  "Arrange windows in horizontally scrolling columns. Applies to this Hyprland session only.": "Organiza as janelas em colunas com rolagem horizontal. Válido apenas nesta sessão do Hyprland.",
+  "Changes take effect immediately and are not saved across sessions.": "As alterações são imediatas e não persistem após reiniciar a sessão.",
+  "Could not change window layout": "Não foi possível alterar o layout das janelas",
+  "Could not read Hyprland layout": "Não foi possível consultar o layout do Hyprland",
+  "Arrange windows in horizontally scrolling columns. The choice is saved for future sessions.": "Organiza as janelas em colunas com rolagem horizontal. A escolha é salva para as próximas sessões.",
+  "Changes take effect immediately and persist after restarting Hyprland.": "As alterações são imediatas e persistem após reiniciar o Hyprland."
 }
