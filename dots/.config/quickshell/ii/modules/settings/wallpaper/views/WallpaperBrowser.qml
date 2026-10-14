@@ -718,6 +718,18 @@ ContentSection {
             visible: true
             opacity: root.feedback.length > 0 ? 1 : 0
             MaterialSymbol {
+                id: searchStatusIcon
+                RotationAnimation on rotation {
+                    from: 0
+                    to: 360
+                    duration: 900
+                    loops: Animation.Infinite
+                    running: root.busy && !root.hasError
+                    onRunningChanged: {
+                        if (!running)
+                            searchStatusIcon.rotation = 0;
+                    }
+                }
                 text: root.hasError
                     ? "error"
                     : root.busy
@@ -873,11 +885,20 @@ ContentSection {
                     onClicked: root.changePage(root.page - 1)
                 }
 
-                Flow {
+                Flickable {
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
-                    Layout.preferredHeight: childrenRect.height
-                    spacing: 4
+                    Layout.preferredHeight: 32
+                    height: 32
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    flickableDirection: Flickable.HorizontalFlick
+                    contentWidth: pageLinksRow.implicitWidth
+                    contentHeight: height
+
+                    Row {
+                        id: pageLinksRow
+                        spacing: 4
 
                     Repeater {
                         model: root.visiblePageNumbers()
@@ -928,6 +949,7 @@ ContentSection {
                                 onTapped: root.changePage(pageButton.modelData)
                             }
                         }
+                    }
                     }
                 }
 

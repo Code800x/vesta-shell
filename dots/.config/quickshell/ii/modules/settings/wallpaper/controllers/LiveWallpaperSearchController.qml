@@ -13,7 +13,7 @@ Item {
     function start(command, page) {
         if (searchProc.running)
             return;
-        requestedPage = Math.max(1, Number(page) || 1);
+        requestedPage = Math.max(1, Math.min(100, Number(page) || 1));
         searchProc.command = command;
         searchProc.running = true;
     }
@@ -35,7 +35,7 @@ Item {
                     1, Number(data.page) || controller.requestedPage
                 );
                 const lastPage = Math.max(
-                    page, Number(data.last_page) || page
+                    page, Math.min(100, Number(data.last_page) || page)
                 );
                 controller.completed(items, page, lastPage);
             } catch (error) {

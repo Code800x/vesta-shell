@@ -68,6 +68,8 @@ ContentSection {
 
     property int lastPage: 1
 
+    readonly property int maximumSearchPage: 100
+
     property bool totalKnown: false
 
     property string feedback: ""
@@ -465,7 +467,7 @@ ContentSection {
 
     function visiblePageNumbers() {
 
-        return WallpaperPagination.visiblePages(page, lastPage, totalKnown);
+        return WallpaperPagination.visiblePages(page, Math.min(lastPage, maximumSearchPage), totalKnown);
 
     }
 
@@ -477,7 +479,7 @@ ContentSection {
 
             targetPage < 1 ||
 
-            targetPage > lastPage ||
+            targetPage > Math.min(lastPage, maximumSearchPage) ||
 
             targetPage === page
 
@@ -794,7 +796,7 @@ ContentSection {
 
         root.lastSuccessfulPage = resultPage;
 
-        root.lastPage = resultLastPage;
+        root.lastPage = Math.min(root.maximumSearchPage, Math.max(root.page, resultLastPage));
 
         // O backend informa apenas se existe a próxima página.
 
@@ -1390,6 +1392,18 @@ ContentSection {
             opacity: (root.feedback.length > 0 || root.busy) ? 1 : 0
 
             MaterialSymbol {
+                id: searchStatusIcon
+                RotationAnimation on rotation {
+                    from: 0
+                    to: 360
+                    duration: 900
+                    loops: Animation.Infinite
+                    running: root.busy && !root.hasError
+                    onRunningChanged: {
+                        if (!running)
+                            searchStatusIcon.rotation = 0;
+                    }
+                }
 
                 text: root.hasError
 
@@ -1707,15 +1721,20 @@ ContentSection {
 
                 }
 
-                Flow {
-
+                Flickable {
                     Layout.fillWidth: true
-
                     Layout.minimumWidth: 0
+                    Layout.preferredHeight: 32
+                    height: 32
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    flickableDirection: Flickable.HorizontalFlick
+                    contentWidth: pageLinksRow.implicitWidth
+                    contentHeight: height
 
-                    Layout.preferredHeight: childrenRect.height
-
-                    spacing: 4
+                    Row {
+                        id: pageLinksRow
+                        spacing: 4
 
                     Repeater {
 
@@ -1803,11 +1822,12 @@ ContentSection {
 
                     }
 
+                    }
                 }
 
                 RippleButtonWithIcon {
 
-                    enabled: !root.busy && root.page < root.lastPage
+                    enabled: !root.busy && root.page < Math.min(root.lastPage, root.maximumSearchPage)
 
                     materialIcon: "chevron_right"
 
