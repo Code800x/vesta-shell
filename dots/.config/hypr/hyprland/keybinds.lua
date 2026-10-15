@@ -360,13 +360,9 @@ hl.bind("CTRL + SUPER + Backslash", hl.dsp.window.resize({ x = 640, y = 480, "ex
 
 
 --##! Scrolling Layout
---# Shortcuts are reserved for the scrolling layout and do not replace
---# existing Super+L (lock), Super+Shift+L (sleep), or Super+/ (cheatsheet).
---# Hyprland ignores these layout messages when another layout is active.
-hl.bind("CTRL + SUPER + H", hl.dsp.layout("focus l"),
-    { description = "Scrolling Layout: Focus column left" })
-hl.bind("CTRL + SUPER + L", hl.dsp.layout("focus r"),
-    { description = "Scrolling Layout: Focus column right" })
+--# Super+Left/Right are already bound to native directional window focus
+--# in the Window section. Do not duplicate them with layoutmsg "focus l/r":
+--# these messages are unsupported by dwindle and trigger runtime errors.
 hl.bind("CTRL + SUPER + SHIFT + H", hl.dsp.layout("swapcol l"),
     { description = "Scrolling Layout: Swap column left" })
 hl.bind("CTRL + SUPER + SHIFT + L", hl.dsp.layout("swapcol r"),
